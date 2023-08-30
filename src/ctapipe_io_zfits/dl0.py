@@ -10,6 +10,11 @@ from typing import Tuple, Dict
 from ctapipe.containers import ObservationBlockContainer, SchedulingBlockContainer
 from ctapipe.io import DataLevel
 from ctapipe.instrument import SubarrayDescription
+from ctapipe.io.eventsource import ArrayEventContainer
+from ctapipe.io.simteleventsource import EventIndexContainer
+from eventio.simtel.simtelfile import ArrayEvent
+from numpy import array
+from protozfits import File
 
 __all__ = [
     "ProtozfitsDL0EventSource",
@@ -31,6 +36,10 @@ class ProtozfitsDL0EventSource(EventSource):
         self._subarray = None
         self._observation_blocks = {}
         self._scheduling_blocks = {}
+        self._subarray_trigger_file = File(str(input_url))
+
+    def close(self):
+        self._subarray_trigger_file.close()
 
     @property
     def is_simulation(self) -> bool:
@@ -53,7 +62,15 @@ class ProtozfitsDL0EventSource(EventSource):
         return self._scheduling_blocks
 
     def _generator(self):
-        pass
+        for subarray_trigger in self._subarray_trigger_file.Events:
+            array_event = ArrayEventContainer(
+                index=EventIndexContainer(
+                    obs_id=subarray_trigger.obs_id,
+                    event_id=subarray_trigger.event_id)
+            )
+
+            yield array_event
+
 
     @classmethod
     def is_compatible(cls, input_url):

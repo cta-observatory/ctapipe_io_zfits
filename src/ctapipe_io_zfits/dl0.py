@@ -38,10 +38,20 @@ class ProtozfitsDL0EventSource(EventSource):
     """
     def __init__(self, input_url, **kwargs):
         super().__init__(input_url=input_url, **kwargs)
-        self._subarray = None
-        self._observation_blocks = {}
-        self._scheduling_blocks = {}
         self._subarray_trigger_file = File(str(input_url))
+        self._subarray_trigger_stream = self._subarray_trigger_file.DataStream[0]
+
+        self._subarray = None
+
+        obs_id = self._subarray_trigger_stream.obs_id
+        sb_id = self._subarray_trigger_stream.sb_id
+
+        self._observation_blocks = {
+            obs_id: ObservationBlockContainer(obs_is=obs_id, sb_id=sb_id)
+        }
+        self._scheduling_blocks = {
+            sb_id: SchedulingBlockContainer(sb_id=sb_id)
+        }
 
     def close(self):
         self._subarray_trigger_file.close()

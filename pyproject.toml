@@ -1,0 +1,56 @@
+# For more information on the content of this file,
+# the developer documentation and the PyPA packaging documentation
+# * https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#declaring-project-metadata
+# * The setuptools and setuptools_scm documentation for the respective sections
+[build-system]
+requires = ["setuptools>=65", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ctapipe_io_zfits"
+
+description = "ctapipe io plugin for reading data in zfits file (ACADA Rel 1 DL0, CTAO R1v1)"
+readme = "README.md"
+license = {text = "BSD-3-Clause"}
+authors = [
+    {name = "Maximilian Linhoff", email = "maximilian.linhoff@tu-dortmund.de"},
+]
+dynamic = ["version"]
+
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "protozfits",
+    "ctapipe~=0.19.3",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "pytest-cov",
+]
+doc = [
+  "sphinx",
+  "numpydoc",
+  "pydata-sphinx-theme",
+]
+dev = [
+  "setuptools_scm",
+  "pre-commit",
+]
+
+# we can use self-references to simplify all
+all = [
+  "ctapipe_io_zfits[test,doc,dev]",
+]
+
+
+[project.urls]
+repository = "https://github.com/cta-observatory/ctapipe_io_zfits"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["ctapipe_io_zfits._dev_version"]
+
+[tool.setuptools_scm]
+write_to = 'src/ctapipe_io_zfits/_version.py'

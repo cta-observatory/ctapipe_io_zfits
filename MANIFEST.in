@@ -1,0 +1,2 @@
+prune src/ctapipe_io_zfits/_dev_version
+prune .github

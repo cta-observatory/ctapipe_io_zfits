@@ -1,0 +1,45 @@
+# Configuration file for the Sphinx documentation builder.
+#
+# This file only contains a selection of the most common options. For a full
+# list see the documentation:
+# https://www.sphinx-doc.org/en/master/usage/configuration.html
+
+# -- Project information -----------------------------------------------------
+import ctapipe_io_zfits
+
+project = "ctapipe_io_zfits"
+copyright = "2023, CTA Observatory"
+author = "Maximilian Linhoff"
+version = ctapipe_io_zfits.__version__
+release = version
+
+
+# -- General configuration ---------------------------------------------------
+
+extensions = [
+    "sphinx.ext.githubpages",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "numpydoc",
+]
+
+templates_path = []
+exclude_patterns = []
+
+# have all links automatically associated with the right domain.
+default_role = "py:obj"
+
+# intersphinx allows referencing other packages sphinx docs
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3.9", None),
+}
+
+# -- Options for HTML output -------------------------------------------------
+html_theme = "pydata_sphinx_theme"
+
+# Add any paths that contain custom static files (such as style sheets) here,
+# relative to this directory. They are copied after the builtin static files,
+# so a file named "default.css" will overwrite the builtin "default.css".
+html_static_path = ["_static"]
+html_logo = "_static/cta.png"

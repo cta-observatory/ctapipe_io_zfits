@@ -7,14 +7,19 @@ from contextlib import ExitStack
 
 from typing import Tuple, Dict
 
-from ctapipe.containers import ObservationBlockContainer, SchedulingBlockContainer
+from ctapipe.containers import (
+    ArrayEventContainer,
+    EventIndexContainer,
+    ObservationBlockContainer,
+    SchedulingBlockContainer,
+    TriggerContainer,
+)
 from ctapipe.io import DataLevel
 from ctapipe.instrument import SubarrayDescription
-from ctapipe.io.eventsource import ArrayEventContainer
-from ctapipe.io.simteleventsource import EventIndexContainer
-from eventio.simtel.simtelfile import ArrayEvent
-from numpy import array
+
 from protozfits import File
+
+from .time import cta_high_res_to_time
 
 __all__ = [
     "ProtozfitsDL0EventSource",
@@ -66,7 +71,15 @@ class ProtozfitsDL0EventSource(EventSource):
             array_event = ArrayEventContainer(
                 index=EventIndexContainer(
                     obs_id=subarray_trigger.obs_id,
-                    event_id=subarray_trigger.event_id)
+                    event_id=subarray_trigger.event_id
+                ),
+                trigger=TriggerContainer(
+                    time=cta_high_res_to_time(
+                        subarray_trigger.event_time_s,
+                        subarray_trigger.event_time_qns
+                    ),
+                    tels_with_trigger=subarray_trigger.tel_ids.tolist(),
+                )
             )
 
             yield array_event

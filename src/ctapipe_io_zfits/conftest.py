@@ -106,10 +106,9 @@ def dummy_dl0(dl0_base):
         trigger_file.write_message(data_stream)
 
         trigger_file.move_to_new_table("Events")
-        time = time + 0.001 * u.s
-        time_s, time_qns = time_to_cta_high(time)
 
         for event_id in range(1, 101):
+            time_s, time_qns = time_to_cta_high(time)
             trigger_file.write_message(Event(
                 event_id=event_id,
                 trigger_type=1,
@@ -120,5 +119,7 @@ def dummy_dl0(dl0_base):
                 trigger_ids=to_anyarray(np.array([event_id])),
                 tel_ids=to_anyarray(np.array([1])),
             ))
+
+            time = time + 0.001 * u.s
 
     return path

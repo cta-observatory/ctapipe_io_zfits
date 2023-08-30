@@ -99,8 +99,6 @@ def dummy_dl0(dl0_base):
     )
 
     time = obs_start
-    rate = 8000
-    rng = np.random.default_rng(0)
 
     with ProtobufZOFits(n_tiles=5, rows_per_tile=20, compression_block_size_kb=64 * 1024) as trigger_file:
         trigger_file.open(str(path))
@@ -108,7 +106,7 @@ def dummy_dl0(dl0_base):
         trigger_file.write_message(data_stream)
 
         trigger_file.move_to_new_table("Events")
-        time = time + rng.exponential(1 / rate) * u.s
+        time = time + 0.001 * u.s
         time_s, time_qns = time_to_cta_high(time)
 
         for event_id in range(1, 101):

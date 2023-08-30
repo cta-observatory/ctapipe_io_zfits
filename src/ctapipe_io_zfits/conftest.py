@@ -111,7 +111,7 @@ def dummy_dl0(dl0_base):
         time = time + rng.exponential(1 / rate) * u.s
         time_s, time_qns = time_to_cta_high(time)
 
-        for event_id in range(100):
+        for event_id in range(1, 101):
             trigger_file.write_message(Event(
                 event_id=event_id,
                 trigger_type=1,

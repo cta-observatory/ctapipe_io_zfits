@@ -5,6 +5,12 @@ from ctapipe.io import EventSource
 import logging
 from contextlib import ExitStack
 
+from typing import Tuple, Dict
+
+from ctapipe.containers import ObservationBlockContainer, SchedulingBlockContainer
+from ctapipe.io import DataLevel
+from ctapipe.instrument import SubarrayDescription
+
 __all__ = [
     "ProtozfitsDL0EventSource",
 ]
@@ -20,6 +26,34 @@ class ProtozfitsDL0EventSource(EventSource):
     will then look for the other data files according to the filename and
     directory schema layed out in the draft of the ACADA - DPPS ICD.
     """
+    def __init__(self, input_url, **kwargs):
+        super().__init__(input_url=input_url, **kwargs)
+        self._subarray = None
+        self._observation_blocks = {}
+        self._scheduling_blocks = {}
+
+    @property
+    def is_simulation(self) -> bool:
+        return False
+
+    @property
+    def datalevels(self) -> Tuple[DataLevel]:
+        return (DataLevel.DL0, )
+
+    @property
+    def subarray(self) -> SubarrayDescription:
+        return self._subarray
+
+    @property
+    def observation_blocks(self) -> Dict[int, ObservationBlockContainer]:
+        return self._observation_blocks
+
+    @property
+    def scheduling_blocks(self) -> Dict[int, SchedulingBlockContainer]:
+        return self._scheduling_blocks
+
+    def _generator(self):
+        pass
 
     @classmethod
     def is_compatible(cls, input_url):
@@ -67,3 +101,4 @@ class ProtozfitsDL0EventSource(EventSource):
             return False
 
         return True
+    

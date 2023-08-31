@@ -47,7 +47,7 @@ class ProtozfitsDL0EventSource(EventSource):
         sb_id = self._subarray_trigger_stream.sb_id
 
         self._observation_blocks = {
-            obs_id: ObservationBlockContainer(obs_is=obs_id, sb_id=sb_id)
+            obs_id: ObservationBlockContainer(obs_id=obs_id, sb_id=sb_id)
         }
         self._scheduling_blocks = {
             sb_id: SchedulingBlockContainer(sb_id=sb_id)

@@ -32,7 +32,7 @@ def to_seconds(days):
     return np.divmod(seconds, 1)
 
 
-def time_to_cta_high(time):
+def time_to_cta_high_res(time):
     '''Convert astropy Time to cta high precision timestamp'''
     # make sure we are in TAI
     time = time.tai

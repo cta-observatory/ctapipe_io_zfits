@@ -9,7 +9,7 @@ from protozfits import ProtobufZOFits
 from protozfits.CTA_DL0_Subarray_pb2 import DataStream, Event
 from protozfits.CoreMessages_pb2 import AnyArray
 
-from ctapipe_io_zfits.time import time_to_cta_high
+from ctapipe_io_zfits.time import time_to_cta_high_res
 
 ANY_ARRAY_TYPE_TO_NUMPY_TYPE = {
     1: np.int8,
@@ -108,7 +108,7 @@ def dummy_dl0(dl0_base):
         trigger_file.move_to_new_table("Events")
 
         for event_id in range(1, 101):
-            time_s, time_qns = time_to_cta_high(time)
+            time_s, time_qns = time_to_cta_high_res(time)
             trigger_file.write_message(Event(
                 event_id=event_id,
                 trigger_type=1,

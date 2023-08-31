@@ -35,4 +35,23 @@ def test_subarray_events(dummy_dl0):
 
         assert n_read == 100
 
+
+def test_subarray_events(dummy_dl0):
+    from ctapipe_io_zfits.dl0 import ProtozfitsDL0EventSource
+
+    with EventSource(dummy_dl0) as source:
+        n_read = 0
+        for array_event in source:
+            assert 1 in array_event.dl0.tel
+
+            dl0_tel = array_event.dl0.tel[1]
+            assert dl0_tel.waveform is not None
+            assert dl0_tel.waveform.shape == (2, 1855, 40)
+            assert dl0_tel.pixel_status is not None
+            assert dl0_tel.pixel_status.shape == (1855, )
+            assert dl0_tel.pixel_status.dtype == np.uint8
+
+
+        assert n_read == 100
+
     assert isinstance(EventSource(dummy_dl0), ProtozfitsDL0EventSource)

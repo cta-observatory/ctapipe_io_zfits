@@ -1,16 +1,16 @@
 from contextlib import ExitStack
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from astropy.time import Time
 import astropy.units as u
 import numpy as np
 import pytest
-from protozfits import ProtobufZOFits
+from astropy.time import Time
+from ctapipe.containers import EventType
 from protozfits import CTA_DL0_Subarray_pb2 as DL0_Subarray
 from protozfits import CTA_DL0_Telescope_pb2 as DL0_Telescope
+from protozfits import ProtobufZOFits
 from protozfits.CoreMessages_pb2 import AnyArray
-from ctapipe.containers import EventType
 
 from ctapipe_io_zfits.time import time_to_cta_high_res
 
@@ -82,21 +82,20 @@ def dl0_base(acada_base):
 
 @pytest.fixture(scope="session")
 def dummy_dl0(dl0_base):
-    trigger_dir = dl0_base / "array" / acada_user / "acada-adh/triggers/2023/08/01/" 
+    trigger_dir = dl0_base / "array" / acada_user / "acada-adh/triggers/2023/08/01/"
     lst_event_dir = dl0_base / "LSTN-01" / acada_user / "acada-adh/events/2023/08/01/"
     subarray_id = 1
     sb_id = 123
     obs_id = 456
-    producer_id = 1 # what is this?
+    producer_id = 1  # what is this?
     sb_creator_id = 1
     sdh_ids = (1, 2, 3, 4)
 
     obs_start_path_string = f"{obs_start.to_datetime(timezone.utc):%Y%m%dT%H%M%S}"
-    filename = f"SUB{subarray_id:03d}_SWAT001_{obs_start_path_string}_SBID{sb_id:019d}_OBSID{obs_id:019d}_SUBARRAY_CHUNK000.fits.fz"
+    filename = f"SUB{subarray_id:03d}_SWAT001_{obs_start_path_string}_SBID{sb_id:019d}_OBSID{obs_id:019d}_SUBARRAY_CHUNK000.fits.fz"  # noqa
     # sdh_id and chunk_id will be filled later -> double {{}}
-    lst_event_pattern = f"TEL001_SDH{{sdh_id:03d}}_{obs_start_path_string}_SBID{sb_id:019d}_OBSID{obs_id:019d}_TEL_SHOWER_CHUNK{{chunk_id:03d}}.fits.fz"
+    lst_event_pattern = f"TEL001_SDH{{sdh_id:03d}}_{obs_start_path_string}_SBID{sb_id:019d}_OBSID{obs_id:019d}_TEL_SHOWER_CHUNK{{chunk_id:03d}}.fits.fz"  # noqa
     trigger_path = trigger_dir / filename
-
 
     subarray_data_stream = DL0_Subarray.DataStream(
         subarray_id=subarray_id,
@@ -131,7 +130,9 @@ def dummy_dl0(dl0_base):
     time = obs_start
 
     ctx = ExitStack()
-    proto_kwargs = dict(n_tiles=5, rows_per_tile=20, compression_block_size_kb=64 * 1024)
+    proto_kwargs = dict(
+        n_tiles=5, rows_per_tile=20, compression_block_size_kb=64 * 1024
+    )
 
     chunksize = 10
     events_written = {sdh_id: 0 for sdh_id in sdh_ids}
@@ -144,7 +145,9 @@ def dummy_dl0(dl0_base):
 
         current_chunk[sdh_id] += 1
         chunk_id = current_chunk[sdh_id]
-        path = lst_event_dir / lst_event_pattern.format(sdh_id=sdh_id, chunk_id=chunk_id)
+        path = lst_event_dir / lst_event_pattern.format(
+            sdh_id=sdh_id, chunk_id=chunk_id
+        )
         f = ctx.enter_context(ProtobufZOFits(**proto_kwargs))
         f.open(str(path))
         f.move_to_new_table("DataStream")
@@ -169,33 +172,36 @@ def dummy_dl0(dl0_base):
             event_id = i + 1
             time_s, time_qns = time_to_cta_high_res(time)
 
-            trigger_file.write_message(DL0_Subarray.Event(
-                event_id=event_id,
-                trigger_type=1,
-                sb_id=sb_id,
-                obs_id=obs_id,
-                event_time_s=int(time_s),
-                event_time_qns=int(time_qns),
-                trigger_ids=to_anyarray(np.array([event_id])),
-                tel_ids=to_anyarray(np.array([1])),
-            ))
-
+            trigger_file.write_message(
+                DL0_Subarray.Event(
+                    event_id=event_id,
+                    trigger_type=1,
+                    sb_id=sb_id,
+                    obs_id=obs_id,
+                    event_time_s=int(time_s),
+                    event_time_qns=int(time_qns),
+                    trigger_ids=to_anyarray(np.array([event_id])),
+                    tel_ids=to_anyarray(np.array([1])),
+                )
+            )
 
             sdh_id = sdh_ids[i % len(sdh_ids)]
             # TODO: randomize event to test actually parsing it
-            lst_event_files[sdh_id].write_message(DL0_Telescope.Event(
-                event_id=event_id,
-                tel_id=camera_configuration.tel_id,
-                event_type=EventType.SUBARRAY.value,
-                event_time_s=int(time_s),
-                event_time_qns=int(time_qns),
-                # identified as signal, low gain stored, high gain stored
-                pixel_status=to_anyarray(np.full(1855, 0b00001101, dtype=np.uint8)),
-                waveform=to_anyarray(np.full((2, 1855, 40), 400, dtype=np.uint16)),
-                num_channels=2,
-                num_samples=40,
-                num_pixels_survived=1855,
-            ))
+            lst_event_files[sdh_id].write_message(
+                DL0_Telescope.Event(
+                    event_id=event_id,
+                    tel_id=camera_configuration.tel_id,
+                    event_type=EventType.SUBARRAY.value,
+                    event_time_s=int(time_s),
+                    event_time_qns=int(time_qns),
+                    # identified as signal, low gain stored, high gain stored
+                    pixel_status=to_anyarray(np.full(1855, 0b00001101, dtype=np.uint8)),
+                    waveform=to_anyarray(np.full((2, 1855, 40), 400, dtype=np.uint16)),
+                    num_channels=2,
+                    num_samples=40,
+                    num_pixels_survived=1855,
+                )
+            )
             events_written[sdh_id] += 1
             if events_written[sdh_id] >= chunksize:
                 open_next_event_file(sdh_id)

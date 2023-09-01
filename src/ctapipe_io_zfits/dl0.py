@@ -3,11 +3,14 @@ DL0 Protozfits EventSource
 """
 import logging
 from contextlib import ExitStack
+from pathlib import Path
 from typing import Dict, Tuple
 
 from ctapipe.containers import (
     ArrayEventContainer,
+    DL0CameraContainer,
     EventIndexContainer,
+    EventType,
     ObservationBlockContainer,
     SchedulingBlockContainer,
     TriggerContainer,
@@ -16,7 +19,8 @@ from ctapipe.instrument import SubarrayDescription
 from ctapipe.io import DataLevel, EventSource
 from protozfits import File
 
-from .instrument import build_subarray_description
+from .instrument import build_subarray_description, get_array_elements_by_id
+from .multifile import MultiFiles
 from .time import cta_high_res_to_time
 
 __all__ = [
@@ -24,6 +28,8 @@ __all__ = [
 ]
 
 log = logging.getLogger(__name__)
+
+ARRAY_ELEMENTS = get_array_elements_by_id()
 
 
 class ProtozfitsDL0EventSource(EventSource):
@@ -37,23 +43,57 @@ class ProtozfitsDL0EventSource(EventSource):
 
     def __init__(self, input_url, **kwargs):
         super().__init__(input_url=input_url, **kwargs)
-        self._subarray_trigger_file = File(str(input_url))
+        # we will open a lot of files, this helps keeping it clean
+        self._exit_stack = ExitStack()
+        self._subarray_trigger_file = self._exit_stack.enter_context(
+            File(str(input_url))
+        )
         self._subarray_trigger_stream = self._subarray_trigger_file.DataStream[0]
 
         self._subarray = build_subarray_description(
             self._subarray_trigger_stream.subarray_id
         )
 
-        obs_id = self._subarray_trigger_stream.obs_id
-        sb_id = self._subarray_trigger_stream.sb_id
+        self.obs_id = self._subarray_trigger_stream.obs_id
+        self.sb_id = self._subarray_trigger_stream.sb_id
 
         self._observation_blocks = {
-            obs_id: ObservationBlockContainer(obs_id=obs_id, sb_id=sb_id)
+            self.obs_id: ObservationBlockContainer(obs_id=self.obs_id, sb_id=self.sb_id)
         }
-        self._scheduling_blocks = {sb_id: SchedulingBlockContainer(sb_id=sb_id)}
+        self._scheduling_blocks = {
+            self.sb_id: SchedulingBlockContainer(sb_id=self.sb_id)
+        }
+
+        self._open_telescope_files()
+
+    def _open_telescope_files(self):
+        self._telescope_files = {}
+        for tel_id in self.subarray.tel:
+            name = ARRAY_ELEMENTS[tel_id]["name"]
+
+            # get the directory, where we should look for files
+            tel_dir = Path(
+                str(self.input_url.parent)
+                .replace("triggers", "events")
+                .replace("array", name)
+            )
+            try:
+                first_file = sorted(
+                    tel_dir.glob(f"*_SBID*{self.sb_id}_OBSID*{self.obs_id}*.fits.fz")
+                )[0]
+            except IndexError:
+                self.log.warning("No events file found for tel_id %d", tel_id)
+                continue
+
+            self._telescope_files[tel_id] = self._exit_stack.enter_context(
+                MultiFiles(first_file)
+            )
 
     def close(self):
-        self._subarray_trigger_file.close()
+        self._exit_stack.__exit__(None, None, None)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._exit_stack.__exit__(exc_type, exc_value, traceback)
 
     @property
     def is_simulation(self) -> bool:
@@ -88,6 +128,27 @@ class ProtozfitsDL0EventSource(EventSource):
                     tels_with_trigger=subarray_trigger.tel_ids.tolist(),
                 ),
             )
+
+            for tel_id in array_event.trigger.tels_with_trigger:
+                tel_event = next(self._telescope_files[tel_id])
+                if tel_event.event_id != array_event.index.event_id:
+                    raise ValueError(
+                        f"Telescope event for tel_id {tel_id} has different event id!"
+                        f" event_id of subarray event: {array_event.index.event_id}"
+                        f" event_id of telescope event: {tel_event.event_id}"
+                    )
+
+                array_event.dl0.tel[tel_id] = DL0CameraContainer(
+                    pixel_status=tel_event.pixel_status,
+                    event_type=EventType(tel_event.event_type),
+                    event_time=cta_high_res_to_time(
+                        tel_event.event_time_s,
+                        tel_event.event_time_qns,
+                    ),
+                    waveform=tel_event.waveform,
+                    first_cell_id=tel_event.first_cell_id,
+                    # module_hires_local_clock_counter=tel_event.module_hires_local_clock_counter,
+                )
 
             yield array_event
 

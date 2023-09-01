@@ -8,6 +8,7 @@ def test_multifiles(dummy_dl0, dl0_base):
     filename = "TEL001_SDH001_20230802T021531_SBID0000000000000000123_OBSID0000000000000000456_TEL_SHOWER_CHUNK000.fits.fz"  # noqa
     path = directory / filename
 
+    Provenance().start_activity("test_multifiles")
     with MultiFiles(path) as mf:
         assert mf.n_open_files == 4
 

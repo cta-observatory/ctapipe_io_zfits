@@ -94,11 +94,11 @@ def build_subarray_description(subarray_id):
             optics = OPTICS["LST"]
 
             with as_file(RESOURCES / "LSTCam.camgeom.fits.gz") as path:
-                Provenance().add_input(path, "CameraGeometry")
+                Provenance().add_input_file(path, "CameraGeometry")
                 geometry = CameraGeometry.from_table(path)
 
             with as_file(RESOURCES / "LSTCam.camreadout.fits.gz") as path:
-                Provenance().add_input(path, "CameraReadout")
+                Provenance().add_input_file(path, "CameraReadout")
                 readout = CameraReadout.from_table(path)
 
             camera = CameraDescription("LSTCam", geometry=geometry, readout=readout)

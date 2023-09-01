@@ -4,6 +4,7 @@ from importlib.resources import as_file, files
 from typing import Tuple
 
 import astropy.units as u
+from ctapipe.coordinates import CameraFrame
 from ctapipe.core import Provenance
 from ctapipe.instrument import (
     CameraDescription,
@@ -96,6 +97,7 @@ def build_subarray_description(subarray_id):
             with as_file(RESOURCES / "LSTCam.camgeom.fits.gz") as path:
                 Provenance().add_input_file(path, "CameraGeometry")
                 geometry = CameraGeometry.from_table(path)
+                geometry.frame = CameraFrame(focal_length=optics.effective_focal_length)
 
             with as_file(RESOURCES / "LSTCam.camreadout.fits.gz") as path:
                 Provenance().add_input_file(path, "CameraReadout")

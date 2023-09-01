@@ -1,8 +1,11 @@
 import astropy.units as u
 import numpy as np
+import pytest
 from astropy.time import Time
+from ctapipe.core.tool import run_tool
 from ctapipe.instrument import SubarrayDescription
 from ctapipe.io import EventSource
+from ctapipe.tools.process import ProcessorTool
 
 
 def test_is_compatible(dummy_dl0):
@@ -41,3 +44,19 @@ def test_subarray_events(dummy_dl0):
             time = time + 0.001 * u.s
 
         assert n_read == 100
+
+
+def test_process(dummy_dl0, tmp_path):
+    path = tmp_path / "dummy.dl1.h5"
+
+    with pytest.warns(UserWarning, match="Encountered an event with no R1 data"):
+        run_tool(
+            ProcessorTool(),
+            [
+                f"--input={dummy_dl0}",
+                f"--output={path}",
+                "--write-images",
+                "--write-parameters",
+            ],
+            raises=True,
+        )

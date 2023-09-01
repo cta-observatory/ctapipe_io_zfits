@@ -6,6 +6,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from typing import Dict, Tuple
 
+import numpy as np
 from ctapipe.containers import (
     ArrayEventContainer,
     DL0CameraContainer,
@@ -41,12 +42,15 @@ class ProtozfitsDL0EventSource(EventSource):
     directory schema layed out in the draft of the ACADA - DPPS ICD.
     """
 
-    def __init__(self, input_url, **kwargs):
-        super().__init__(input_url=input_url, **kwargs)
+    def __init__(self, input_url=None, **kwargs):
+        if input_url is not None:
+            kwargs["input_url"] = input_url
+
+        super().__init__(**kwargs)
         # we will open a lot of files, this helps keeping it clean
         self._exit_stack = ExitStack()
         self._subarray_trigger_file = self._exit_stack.enter_context(
-            File(str(input_url))
+            File(str(self.input_url))
         )
         self._subarray_trigger_stream = self._subarray_trigger_file.DataStream[0]
 
@@ -58,10 +62,12 @@ class ProtozfitsDL0EventSource(EventSource):
         self.sb_id = self._subarray_trigger_stream.sb_id
 
         self._observation_blocks = {
-            self.obs_id: ObservationBlockContainer(obs_id=self.obs_id, sb_id=self.sb_id)
+            self.obs_id: ObservationBlockContainer(
+                obs_id=np.uint64(self.obs_id), sb_id=np.uint64(self.sb_id)
+            )
         }
         self._scheduling_blocks = {
-            self.sb_id: SchedulingBlockContainer(sb_id=self.sb_id)
+            self.sb_id: SchedulingBlockContainer(sb_id=np.uint64(self.sb_id))
         }
 
         self._open_telescope_files()
@@ -130,7 +136,8 @@ class ProtozfitsDL0EventSource(EventSource):
             )
 
             for tel_id in array_event.trigger.tels_with_trigger:
-                tel_event = next(self._telescope_files[tel_id])
+                tel_file = self._telescope_files[tel_id]
+                tel_event = next(tel_file)
                 if tel_event.event_id != array_event.index.event_id:
                     raise ValueError(
                         f"Telescope event for tel_id {tel_id} has different event id!"
@@ -138,14 +145,25 @@ class ProtozfitsDL0EventSource(EventSource):
                         f" event_id of telescope event: {tel_event.event_id}"
                     )
 
+                n_channels = tel_event.num_channels
+                n_pixels = tel_event.num_pixels_survived
+                n_samples = tel_event.num_samples
+                shape = (n_channels, n_pixels, n_samples)
+                # FIXME: ctapipe  can only handle a single gain
+                waveform = tel_event.waveform.reshape(shape)[0]
+                offset = tel_file.data_stream.waveform_offset
+                scale = tel_file.data_stream.waveform_scale
+                waveform = (waveform.astype(np.float32) - offset) / scale
+
                 array_event.dl0.tel[tel_id] = DL0CameraContainer(
                     pixel_status=tel_event.pixel_status,
                     event_type=EventType(tel_event.event_type),
+                    selected_gain_channel=np.zeros(n_pixels, dtype=np.int8),
                     event_time=cta_high_res_to_time(
                         tel_event.event_time_s,
                         tel_event.event_time_qns,
                     ),
-                    waveform=tel_event.waveform,
+                    waveform=waveform,
                     first_cell_id=tel_event.first_cell_id,
                     # module_hires_local_clock_counter=tel_event.module_hires_local_clock_counter,
                 )

@@ -12,8 +12,7 @@ icd_examples = [
         "SUB001_SWAT001_20231011T030105_SBID0000000000000012345_OBSID0000000000000006789_SUBARRAY_CHUNK000.fits.fz",  # noqa
         FileNameInfo(
             subarray_id=1,
-            system_name="SWAT",
-            system_id=1,
+            data_source_id="SWAT001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -26,8 +25,7 @@ icd_examples = [
         "SUB002_SWAT001_20231011T030105_SBID0000000000000012346_OBSID0000000000000006789_SUBARRAY_CHUNK001.fits.fz",  # noqa
         FileNameInfo(
             subarray_id=2,
-            system_name="SWAT",
-            system_id=1,
+            data_source_id="SWAT001",
             timestamp=timestamp,
             sb_id=12346,
             obs_id=6789,
@@ -40,8 +38,7 @@ icd_examples = [
         "SUB003_SWAT001_20231011T030105_SBID0000000000000012347_OBSID0000000000000006789_SUBARRAY_CHUNK000.fits.fz",  # noqa
         FileNameInfo(
             subarray_id=3,
-            system_name="SWAT",
-            system_id=1,
+            data_source_id="SWAT001",
             timestamp=timestamp,
             sb_id=12347,
             obs_id=6789,
@@ -55,8 +52,7 @@ icd_examples = [
         "SUB001_SWAT001_20231011T030105_SBID0000000000000012345_OBSID0000000000000006789_TEL_CHUNK000.fits.fz",  # noqa
         FileNameInfo(
             subarray_id=1,
-            system_name="SWAT",
-            system_id=1,
+            data_source_id="SWAT001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -69,8 +65,7 @@ icd_examples = [
         "SUB002_SWAT001_20231011T030105_SBID0000000000000012345_OBSID0000000000000006789_TEL_CHUNK000.fits.fz",  # noqa
         FileNameInfo(
             subarray_id=2,
-            system_name="SWAT",
-            system_id=1,
+            data_source_id="SWAT001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -83,8 +78,7 @@ icd_examples = [
         "SUB003_SWAT001_20231011T030105_SBID0000000000000012345_OBSID0000000000000006789_TEL_CHUNK000.fits.fz",  # noqa
         FileNameInfo(
             subarray_id=3,
-            system_name="SWAT",
-            system_id=1,
+            data_source_id="SWAT001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -98,8 +92,7 @@ icd_examples = [
         "SUB001_SWAT001_20231011T030105_SBID0000000000000012345_OBSID0000000000000006789_MON_CHUNK000.fits.fz",  # noqa
         FileNameInfo(
             subarray_id=1,
-            system_name="SWAT",
-            system_id=1,
+            data_source_id="SWAT001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -112,8 +105,7 @@ icd_examples = [
         "SUB002_SWAT001_20231011T030105_SBID0000000000000012346_OBSID0000000000000006790_MON_CHUNK000.fits.fz",  # noqa
         FileNameInfo(
             subarray_id=2,
-            system_name="SWAT",
-            system_id=1,
+            data_source_id="SWAT001",
             timestamp=timestamp,
             sb_id=12346,
             obs_id=6790,
@@ -126,8 +118,7 @@ icd_examples = [
         "SUB003_SWAT001_20231011T030105_SBID0000000000000012347_OBSID0000000000000006791_MON_CHUNK000.fits.fz",  # noqa
         FileNameInfo(
             subarray_id=3,
-            system_name="SWAT",
-            system_id=1,
+            data_source_id="SWAT001",
             timestamp=timestamp,
             sb_id=12347,
             obs_id=6791,
@@ -142,8 +133,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="TEL",
             ae_id=1,
-            system_name="SDH",
-            system_id=1,
+            data_source_id="SDH001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -158,8 +148,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="TEL",
             ae_id=1,
-            system_name="SDH",
-            system_id=1,
+            data_source_id="SDH001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -174,8 +163,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="TEL",
             ae_id=2,
-            system_name="SDH",
-            system_id=1,
+            data_source_id="SDH001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -190,8 +178,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="TEL",
             ae_id=2,
-            system_name="SDH",
-            system_id=1,
+            data_source_id="SDH001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -207,8 +194,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="TEL",
             ae_id=1,
-            system_name="SDH",
-            system_id=1,
+            data_source_id="SDH001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -223,8 +209,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="TEL",
             ae_id=1,
-            system_name="SDH",
-            system_id=1,
+            data_source_id="SDH001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -240,8 +225,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="TEL",
             ae_id=1,
-            system_name="SDH",
-            system_id=1,
+            data_source_id="SDH001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -256,8 +240,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="TEL",
             ae_id=2,
-            system_name="SDH",
-            system_id=2,
+            data_source_id="SDH002",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -273,8 +256,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="AUX",
             ae_id=21,
-            system_name="CAMERA",
-            system_id=1,
+            data_source_id="CAMERA01",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -287,8 +269,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="AUX",
             ae_id=21,
-            system_name="CAMERA",
-            system_id=1,
+            data_source_id="CAMERA01",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -301,8 +282,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="AUX",
             ae_id=21,
-            system_name="CAMERA",
-            system_id=1,
+            data_source_id="CAMERA01",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -316,8 +296,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="AUX",
             ae_id=20,
-            system_name="LASER",
-            system_id=1,
+            data_source_id="LASER001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -330,8 +309,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="AUX",
             ae_id=20,
-            system_name="LASER",
-            system_id=1,
+            data_source_id="LASER001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -344,8 +322,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="AUX",
             ae_id=20,
-            system_name="LASER",
-            system_id=1,
+            data_source_id="LASER001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6790,
@@ -359,8 +336,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="AUX",
             ae_id=25,
-            system_name="LASER",
-            system_id=1,
+            data_source_id="LASER001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -373,8 +349,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="AUX",
             ae_id=25,
-            system_name="LASER",
-            system_id=1,
+            data_source_id="LASER001",
             timestamp=timestamp,
             sb_id=12345,
             obs_id=6789,
@@ -384,27 +359,23 @@ icd_examples = [
     ),
     # 10 <asc_id><obs_id>.fits
     (
-        "AUX029_CAMERA01_20231011T030105_OBSID0000000000000006789_FILE001.fits",
+        "AUX029_CAMERA01_20231011T030105_FILE001.fits",
         FileNameInfo(
             ae_type="AUX",
             ae_id=29,
-            system_name="CAMERA",
-            system_id=1,
+            data_source_id="CAMERA01",
             timestamp=timestamp,
-            obs_id=6789,
             file_id=1,
             suffix=".fits",
         ),
     ),
     (
-        "AUX029_CAMERA01_20231011T030105_OBSID0000000000000006790_FILE001.fits",
+        "AUX029_CAMERA01_20231011T030105_FILE001.fits",
         FileNameInfo(
             ae_type="AUX",
             ae_id=29,
-            system_name="CAMERA",
-            system_id=1,
+            data_source_id="CAMERA01",
             timestamp=timestamp,
-            obs_id=6790,
             file_id=1,
             suffix=".fits",
         ),
@@ -415,8 +386,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="AUX",
             ae_id=26,
-            system_name="BRIDGE",
-            system_id=1,
+            data_source_id="BRIDGE01",
             timestamp=date(2023, 10, 11),
             file_id=1,
             suffix=".fits",
@@ -427,8 +397,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="AUX",
             ae_id=26,
-            system_name="BRIDGE",
-            system_id=1,
+            data_source_id="BRIDGE01",
             timestamp=date(2023, 10, 12),
             file_id=1,
             suffix=".fits",
@@ -440,8 +409,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="AUX",
             ae_id=22,
-            system_name="BRIDGE",
-            system_id=1,
+            data_source_id="BRIDGE01",
             timestamp=date(2023, 10, 11),
             file_id=1,
             suffix=".fits",
@@ -452,8 +420,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="AUX",
             ae_id=22,
-            system_name="BRIDGE",
-            system_id=1,
+            data_source_id="BRIDGE01",
             timestamp=date(2023, 10, 12),
             file_id=1,
             suffix=".fits",
@@ -465,8 +432,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="TEL",
             ae_id=1,
-            system_name="CCDCAM",
-            system_id=1,
+            data_source_id="CCDCAM01",
             timestamp=timestamp,
             file_id=1,
             suffix=".fits",
@@ -477,8 +443,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="TEL",
             ae_id=1,
-            system_name="CCDCAM",
-            system_id=1,
+            data_source_id="CCDCAM01",
             timestamp=timestamp,
             file_id=1,
             suffix=".fits",
@@ -490,8 +455,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="TEL",
             ae_id=1,
-            system_name="BROKER",
-            system_id=1,
+            data_source_id="BROKER01",
             timestamp=date(2023, 10, 11),
             file_id=1,
             suffix=".fits",
@@ -502,8 +466,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="TEL",
             ae_id=1,
-            system_name="BROKER",
-            system_id=1,
+            data_source_id="BROKER01",
             timestamp=date(2023, 10, 12),
             file_id=1,
             suffix=".fits",
@@ -515,8 +478,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="AUX",
             ae_id=20,
-            system_name="LASER",
-            system_id=1,
+            data_source_id="LASER001",
             timestamp=date(2023, 10, 11),
             file_id=1,
             suffix=".fits",
@@ -527,8 +489,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="AUX",
             ae_id=20,
-            system_name="LASER",
-            system_id=1,
+            data_source_id="LASER001",
             timestamp=date(2023, 10, 11),
             file_id=2,
             suffix=".fits",
@@ -540,7 +501,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="TEL",
             ae_id=1,
-            system_name="EVB",
+            data_source_id="EVB",
             timestamp=date(2023, 10, 11),
             type_="DRS4CORR",
             file_id=1,
@@ -552,7 +513,7 @@ icd_examples = [
         FileNameInfo(
             ae_type="TEL",
             ae_id=1,
-            system_name="EVB",
+            data_source_id="EVB",
             timestamp=date(2023, 10, 11),
             type_="DRS4CORR",
             file_id=2,

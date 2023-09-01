@@ -7,11 +7,10 @@ from typing import Optional, Union
 
 @dataclass
 class FileNameInfo:
-    system_name: str
-    system_id: Optional[int] = None
-    subarray_id: Optional[int] = None
+    data_source_id: str
     ae_type: Optional[str] = None
     ae_id: Optional[int] = None
+    subarray_id: Optional[int] = None
     sb_id: Optional[int] = None
     obs_id: Optional[int] = None
     type_: Optional[str] = None
@@ -25,7 +24,7 @@ class FileNameInfo:
 #: regex to match filenames according to the ACADA DPPS ICD naming pattern
 FILENAME_RE = re.compile(
     r"(?:(?:SUB(?P<subarray_id>\d+))|(?:(?P<ae_type>TEL|AUX)(?P<ae_id>\d+)))"
-    r"(?:_(?P<system_name>[A-Z]+)(?P<system_id>\d+)?)"
+    r"(?:_(?P<data_source_id>[A-Z]+\d*))"
     r"(?:_(?P<date>[0-9]{8})(?:T(?P<time>[0-9]{6}))?)"
     r"(?:_SBID(?P<sb_id>\d+))?"
     r"(?:_OBSID(?P<obs_id>\d+))?"
@@ -49,7 +48,6 @@ def parse_filename(path):
 
     for key in (
         "ae_id",
-        "system_id",
         "subarray_id",
         "sb_id",
         "obs_id",

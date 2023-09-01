@@ -1,11 +1,9 @@
 """
 DL0 Protozfits EventSource
 """
-from ctapipe.io import EventSource
 import logging
 from contextlib import ExitStack
-
-from typing import Tuple, Dict
+from typing import Dict, Tuple
 
 from ctapipe.containers import (
     ArrayEventContainer,
@@ -14,11 +12,11 @@ from ctapipe.containers import (
     SchedulingBlockContainer,
     TriggerContainer,
 )
-from ctapipe.io import DataLevel
 from ctapipe.instrument import SubarrayDescription
-
+from ctapipe.io import DataLevel, EventSource
 from protozfits import File
 
+from .instrument import build_subarray_description
 from .time import cta_high_res_to_time
 
 __all__ = [
@@ -36,12 +34,15 @@ class ProtozfitsDL0EventSource(EventSource):
     will then look for the other data files according to the filename and
     directory schema layed out in the draft of the ACADA - DPPS ICD.
     """
+
     def __init__(self, input_url, **kwargs):
         super().__init__(input_url=input_url, **kwargs)
         self._subarray_trigger_file = File(str(input_url))
         self._subarray_trigger_stream = self._subarray_trigger_file.DataStream[0]
 
-        self._subarray = None
+        self._subarray = build_subarray_description(
+            self._subarray_trigger_stream.subarray_id
+        )
 
         obs_id = self._subarray_trigger_stream.obs_id
         sb_id = self._subarray_trigger_stream.sb_id
@@ -49,9 +50,7 @@ class ProtozfitsDL0EventSource(EventSource):
         self._observation_blocks = {
             obs_id: ObservationBlockContainer(obs_id=obs_id, sb_id=sb_id)
         }
-        self._scheduling_blocks = {
-            sb_id: SchedulingBlockContainer(sb_id=sb_id)
-        }
+        self._scheduling_blocks = {sb_id: SchedulingBlockContainer(sb_id=sb_id)}
 
     def close(self):
         self._subarray_trigger_file.close()
@@ -62,7 +61,7 @@ class ProtozfitsDL0EventSource(EventSource):
 
     @property
     def datalevels(self) -> Tuple[DataLevel]:
-        return (DataLevel.DL0, )
+        return (DataLevel.DL0,)
 
     @property
     def subarray(self) -> SubarrayDescription:
@@ -80,20 +79,17 @@ class ProtozfitsDL0EventSource(EventSource):
         for subarray_trigger in self._subarray_trigger_file.Events:
             array_event = ArrayEventContainer(
                 index=EventIndexContainer(
-                    obs_id=subarray_trigger.obs_id,
-                    event_id=subarray_trigger.event_id
+                    obs_id=subarray_trigger.obs_id, event_id=subarray_trigger.event_id
                 ),
                 trigger=TriggerContainer(
                     time=cta_high_res_to_time(
-                        subarray_trigger.event_time_s,
-                        subarray_trigger.event_time_qns
+                        subarray_trigger.event_time_s, subarray_trigger.event_time_qns
                     ),
                     tels_with_trigger=subarray_trigger.tel_ids.tolist(),
-                )
+                ),
             )
 
             yield array_event
-
 
     @classmethod
     def is_compatible(cls, input_url):
@@ -110,7 +106,9 @@ class ProtozfitsDL0EventSource(EventSource):
                 return False
 
             if "DataStream" not in hdul:
-                log.debug("FITS file does not contain a DataStream HDU, returning False")
+                log.debug(
+                    "FITS file does not contain a DataStream HDU, returning False"
+                )
                 return False
 
             if "Events" not in hdul:
@@ -120,11 +118,11 @@ class ProtozfitsDL0EventSource(EventSource):
             header = hdul["Events"].header
 
         if header["XTENSION"] != "BINTABLE":
-            log.debug(f"Events HDU is not a bintable")
+            log.debug("Events HDU is not a bintable")
             return False
 
         if not header.get("ZTABLE", False):
-            log.debug(f"ZTABLE is not in header or False")
+            log.debug("ZTABLE is not in header or False")
             return False
 
         if header.get("ORIGIN", "") != "CTA":
@@ -141,4 +139,3 @@ class ProtozfitsDL0EventSource(EventSource):
             return False
 
         return True
-    

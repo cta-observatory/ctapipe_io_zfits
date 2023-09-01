@@ -55,5 +55,8 @@ repository = "https://github.com/cta-observatory/ctapipe_io_zfits"
 where = ["src"]
 exclude = ["ctapipe_io_zfits._dev_version"]
 
+[tool.setuptools.package-data]
+ctapipe_io_zfits = ["resources/*"]
+
 [tool.setuptools_scm]
 write_to = 'src/ctapipe_io_zfits/_version.py'

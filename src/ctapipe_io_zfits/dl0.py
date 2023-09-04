@@ -16,6 +16,7 @@ from ctapipe.containers import (
     SchedulingBlockContainer,
     TriggerContainer,
 )
+from ctapipe.core.traits import Integer
 from ctapipe.instrument import SubarrayDescription
 from ctapipe.io import DataLevel, EventSource
 from protozfits import File
@@ -41,6 +42,7 @@ class ProtozfitsDL0EventSource(EventSource):
     will then look for the other data files according to the filename and
     directory schema layed out in the draft of the ACADA - DPPS ICD.
     """
+    subarray_id = Integer(default_value=1).tag(config=True)
 
     def __init__(self, input_url=None, **kwargs):
         if input_url is not None:
@@ -52,14 +54,18 @@ class ProtozfitsDL0EventSource(EventSource):
         self._subarray_trigger_file = self._exit_stack.enter_context(
             File(str(self.input_url))
         )
-        self._subarray_trigger_stream = self._subarray_trigger_file.DataStream[0]
+        self._subarray_trigger_stream = None
+        if hasattr(self._subarray_trigger_file, "DataStream"): 
+            self._subarray_trigger_stream = self._subarray_trigger_file.DataStream[0]
+            self.sb_id = self._subarray_trigger_stream.sb_id
+            self.obs_id = self._subarray_trigger_stream.obs_id
+            self.subarray_id = self._subarray_trigger_stream.subarray_id
+        else:
+            first_event = self._subarray_trigger_file.SubarrayEvents[0]
+            self.sb_id = first_event.sb_id
+            self.obs_id = first_event.obs_id
 
-        self._subarray = build_subarray_description(
-            self._subarray_trigger_stream.subarray_id
-        )
-
-        self.obs_id = self._subarray_trigger_stream.obs_id
-        self.sb_id = self._subarray_trigger_stream.sb_id
+        self._subarray = build_subarray_description(self.subarray_id)
 
         self._observation_blocks = {
             self.obs_id: ObservationBlockContainer(
@@ -122,7 +128,7 @@ class ProtozfitsDL0EventSource(EventSource):
         return self._scheduling_blocks
 
     def _generator(self):
-        for subarray_trigger in self._subarray_trigger_file.Events:
+        for subarray_trigger in self._subarray_trigger_file.SubarrayEvents:
             array_event = ArrayEventContainer(
                 index=EventIndexContainer(
                     obs_id=subarray_trigger.obs_id, event_id=subarray_trigger.event_id
@@ -184,17 +190,11 @@ class ProtozfitsDL0EventSource(EventSource):
                 log.debug(f"Error trying to open input file as fits: {e}")
                 return False
 
-            if "DataStream" not in hdul:
-                log.debug(
-                    "FITS file does not contain a DataStream HDU, returning False"
-                )
-                return False
-
-            if "Events" not in hdul:
+            if "SubarrayEvents" not in hdul:
                 log.debug("FITS file does not contain an Events HDU, returning False")
                 return False
 
-            header = hdul["Events"].header
+            header = hdul["SubarrayEvents"].header
 
         if header["XTENSION"] != "BINTABLE":
             log.debug("Events HDU is not a bintable")

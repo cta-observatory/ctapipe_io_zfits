@@ -15,27 +15,24 @@ from protozfits.CoreMessages_pb2 import AnyArray
 from ctapipe_io_zfits.time import time_to_cta_high_res
 
 ANY_ARRAY_TYPE_TO_NUMPY_TYPE = {
-    1: np.int8,
-    2: np.uint8,
-    3: np.int16,
-    4: np.uint16,
-    5: np.int32,
-    6: np.uint32,
-    7: np.int64,
-    8: np.uint64,
-    9: np.float32,
-    10: np.float64,
+    AnyArray.S8: np.int8,
+    AnyArray.U8: np.uint8,
+    AnyArray.S16: np.int16,
+    AnyArray.U16: np.uint16,
+    AnyArray.S32: np.int32,
+    AnyArray.U32: np.uint32,
+    AnyArray.S64: np.int64,
+    AnyArray.U64: np.uint64,
+    AnyArray.FLOAT: np.float32,
+    AnyArray.DOUBLE: np.float64,
 }
 
 DTYPE_TO_ANYARRAY_TYPE = {v: k for k, v in ANY_ARRAY_TYPE_TO_NUMPY_TYPE.items()}
 
 acada_user = "ctao-acada-n"
 obs_start = Time("2023-08-02T02:15:31")
-timezone_canary = ZoneInfo("Atlantic/Canary")
+timezone_cta_n = ZoneInfo("Atlantic/Canary")
 
-array_elements = {
-    1: "LSTN-01",
-}
 
 
 def to_anyarray(array):
@@ -65,13 +62,13 @@ def dl0_base(acada_base):
     dl0 = acada_base / "DL0"
     dl0.mkdir(exist_ok=True)
 
-    lst_base = dl0 / array_elements[1] / acada_user / "acada-adh"
+    lst_base = dl0 / "LSTN-01" / acada_user / "acada-adh"
     lst_events = lst_base / "events"
     lst_monitoring = lst_base / "monitoring"
     array_triggers = dl0 / "array" / acada_user / "acada-adh" / "triggers"
     array_monitoring = dl0 / "array" / acada_user / "acada-adh" / "monitoring"
 
-    evening = evening_of_obs(obs_start, timezone_canary)
+    evening = evening_of_obs(obs_start, timezone_cta_n)
 
     for directory in (lst_events, lst_monitoring, array_triggers, array_monitoring):
         date_path = directory / f"{evening:%Y/%m/%d}"
@@ -104,6 +101,7 @@ def dummy_dl0(dl0_base):
         producer_id=producer_id,
         sb_creator_id=sb_creator_id,
     )
+
     lst_data_stream = DL0_Telescope.DataStream(
         tel_id=1,
         sb_id=sb_id,
@@ -161,9 +159,9 @@ def dummy_dl0(dl0_base):
     with ctx:
         trigger_file = ctx.enter_context(ProtobufZOFits(**proto_kwargs))
         trigger_file.open(str(trigger_path))
-        trigger_file.move_to_new_table("DataStream")
-        trigger_file.write_message(subarray_data_stream)
-        trigger_file.move_to_new_table("Events")
+        # trigger_file.move_to_new_table("DataStream")
+        # trigger_file.write_message(subarray_data_stream)
+        trigger_file.move_to_new_table("SubarrayEvents")
 
         for sdh_id in sdh_ids:
             open_next_event_file(sdh_id)

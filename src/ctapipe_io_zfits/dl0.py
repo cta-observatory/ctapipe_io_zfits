@@ -214,7 +214,7 @@ class ProtozfitsDL0EventSource(EventSource):
             return False
 
         if proto_class != "DL0v1.Subarray.Event":
-            log.debug(f"Unsupported PBDHEAD: {proto_class}")
+            log.debug(f"Unsupported PBFHEAD: {proto_class}")
             return False
 
         return True

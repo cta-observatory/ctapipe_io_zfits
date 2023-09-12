@@ -74,6 +74,32 @@ def _is_compatible(input_url, extname, allowed_protos):
     return True
 
 
+
+def _fill_dl0_container(tel_event, data_stream):
+    n_channels = tel_event.num_channels
+    n_pixels = tel_event.num_pixels_survived
+    n_samples = tel_event.num_samples
+    shape = (n_channels, n_pixels, n_samples)
+    # FIXME: ctapipe  can only handle a single gain
+    waveform = tel_event.waveform.reshape(shape)[0]
+    offset = data_stream.waveform_offset
+    scale = data_stream.waveform_scale
+    waveform = waveform.astype(np.float32) / scale - offset
+
+    return DL0CameraContainer(
+        pixel_status=tel_event.pixel_status,
+        event_type=EventType(tel_event.event_type),
+        selected_gain_channel=np.zeros(n_pixels, dtype=np.int8),
+        event_time=cta_high_res_to_time(
+            tel_event.event_time_s,
+            tel_event.event_time_qns,
+        ),
+        waveform=waveform,
+        first_cell_id=tel_event.first_cell_id,
+        # module_hires_local_clock_counter=tel_event.module_hires_local_clock_counter,
+    )
+
+
 class ProtozfitsDL0EventSource(EventSource):
     """
     DL0 Protozfits EventSource.
@@ -206,27 +232,10 @@ class ProtozfitsDL0EventSource(EventSource):
                         f" event_id of telescope event: {tel_event.event_id}"
                     )
 
-                n_channels = tel_event.num_channels
-                n_pixels = tel_event.num_pixels_survived
-                n_samples = tel_event.num_samples
-                shape = (n_channels, n_pixels, n_samples)
-                # FIXME: ctapipe  can only handle a single gain
-                waveform = tel_event.waveform.reshape(shape)[0]
-                offset = tel_file.data_stream.waveform_offset
-                scale = tel_file.data_stream.waveform_scale
-                waveform = (waveform.astype(np.float32) - offset) / scale
 
-                array_event.dl0.tel[tel_id] = DL0CameraContainer(
-                    pixel_status=tel_event.pixel_status,
-                    event_type=EventType(tel_event.event_type),
-                    selected_gain_channel=np.zeros(n_pixels, dtype=np.int8),
-                    event_time=cta_high_res_to_time(
-                        tel_event.event_time_s,
-                        tel_event.event_time_qns,
-                    ),
-                    waveform=waveform,
-                    first_cell_id=tel_event.first_cell_id,
-                    # module_hires_local_clock_counter=tel_event.module_hires_local_clock_counter,
+                array_event.dl0.tel[tel_id] = _fill_dl0_container(
+                    tel_event,
+                    tel_file.data_stream,
                 )
 
             yield array_event
@@ -321,30 +330,10 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
             ),
         )
         array_event.trigger.tel[tel_id] = TelescopeTriggerContainer(time=time)
-
-        n_channels = zfits_event.num_channels
-        n_pixels = zfits_event.num_pixels_survived
-        n_samples = zfits_event.num_samples
-        shape = (n_channels, n_pixels, n_samples)
-        # FIXME: ctapipe  can only handle a single gain
-        waveform = zfits_event.waveform.reshape(shape)[0]
-        offset = self._multi_file.data_stream.waveform_offset
-        scale = self._multi_file.data_stream.waveform_scale
-        waveform = (waveform.astype(np.float32) - offset) / scale
-
-        array_event.dl0.tel[tel_id] = DL0CameraContainer(
-            pixel_status=zfits_event.pixel_status,
-            event_type=EventType(zfits_event.event_type),
-            selected_gain_channel=np.zeros(n_pixels, dtype=np.int8),
-            event_time=cta_high_res_to_time(
-                zfits_event.event_time_s,
-                zfits_event.event_time_qns,
-            ),
-            waveform=waveform,
-            first_cell_id=zfits_event.first_cell_id,
-            # module_hires_local_clock_counter=zfits_event.module_hires_local_clock_counter,
+        array_event.dl0.tel[tel_id] = _fill_dl0_container(
+            zfits_event,
+            self._multi_file.data_stream,
         )
-
         return array_event
 
     def _generator(self):

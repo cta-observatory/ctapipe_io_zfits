@@ -77,6 +77,7 @@ def dl0_base(acada_base):
     return dl0
 
 
+
 @pytest.fixture(scope="session")
 def dummy_dl0(dl0_base):
     trigger_dir = dl0_base / "array" / acada_user / "acada-adh/triggers/2023/08/01/"
@@ -106,8 +107,8 @@ def dummy_dl0(dl0_base):
         tel_id=1,
         sb_id=sb_id,
         obs_id=obs_id,
-        waveform_scale=80,
-        waveform_offset=400,
+        waveform_scale=80.0,
+        waveform_offset=5.0,
         sb_creator_id=sb_creator_id,
     )
     camera_configuration = DL0_Telescope.CameraConfiguration(
@@ -156,6 +157,11 @@ def dummy_dl0(dl0_base):
         lst_event_files[sdh_id] = f
         events_written[sdh_id] = 0
 
+    def convert_waveform(waveform):
+        scale = lst_data_stream.waveform_scale
+        offset = lst_data_stream.waveform_offset
+        return ((waveform + offset) * scale).astype(np.uint16)
+
     with ctx:
         trigger_file = ctx.enter_context(ProtobufZOFits(**proto_kwargs))
         trigger_file.open(str(trigger_path))
@@ -185,6 +191,11 @@ def dummy_dl0(dl0_base):
 
             sdh_id = sdh_ids[i % len(sdh_ids)]
             # TODO: randomize event to test actually parsing it
+
+            # TODO: fill actual signal into waveform, not just 0
+            waveform = np.zeros((2, 1855, 40), dtype=np.float32)
+
+
             lst_event_files[sdh_id].write_message(
                 DL0_Telescope.Event(
                     event_id=event_id,
@@ -194,7 +205,7 @@ def dummy_dl0(dl0_base):
                     event_time_qns=int(time_qns),
                     # identified as signal, low gain stored, high gain stored
                     pixel_status=to_anyarray(np.full(1855, 0b00001101, dtype=np.uint8)),
-                    waveform=to_anyarray(np.full((2, 1855, 40), 400, dtype=np.uint16)),
+                    waveform=to_anyarray(convert_waveform(waveform)),
                     num_channels=2,
                     num_samples=40,
                     num_pixels_survived=1855,

@@ -40,6 +40,9 @@ def test_subarray_events(dummy_dl0):
                 1,
             ]
 
+            np.testing.assert_array_equal(array_event.dl0.tel[1].waveform, 0.0)
+            assert array_event.dl0.tel[1].waveform.dtype == np.float32
+
             n_read += 1
             time = time + 0.001 * u.s
 

@@ -15,6 +15,7 @@ from ctapipe.containers import (
     ObservationBlockContainer,
     SchedulingBlockContainer,
     TriggerContainer,
+    TelescopeTriggerContainer,
 )
 from ctapipe.core.traits import Integer
 from ctapipe.instrument import SubarrayDescription
@@ -32,6 +33,45 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 ARRAY_ELEMENTS = get_array_elements_by_id()
+
+
+def _is_compatible(input_url, extname, allowed_protos):
+    from astropy.io import fits
+
+    # this allows us to just use try/except around the opening of the fits file,
+    stack = ExitStack()
+
+    with stack:
+        try:
+            hdul = stack.enter_context(fits.open(input_url))
+        except Exception as e:
+            log.debug(f"Error trying to open input file as fits: {e}")
+            return False
+
+        if extname not in hdul:
+            log.debug("FITS file does not contain '%s' HDU", extname)
+            return False
+
+        header = hdul[extname].header
+
+    if header["XTENSION"] != "BINTABLE":
+        log.debug("%s HDU is not a bintable", extname)
+        return False
+
+    if not header.get("ZTABLE", False):
+        log.debug("ZTABLE is not in header or False")
+        return False
+
+    proto_class = header.get("PBFHEAD")
+    if proto_class is None:
+        log.debug("Missing PBFHEAD key")
+        return False
+
+    if proto_class not in allowed_protos:
+        log.debug(f"Unsupported PBFHEAD: {proto_class} not in {allowed_protos}")
+        return False
+
+    return True
 
 
 class ProtozfitsDL0EventSource(EventSource):
@@ -76,19 +116,34 @@ class ProtozfitsDL0EventSource(EventSource):
             self.sb_id: SchedulingBlockContainer(sb_id=np.uint64(self.sb_id))
         }
 
+        # <prefix>/DL0/<ae-id>/<acada-user>/acada-adh/events/<YYYY>/<MM>/<DD>/ 
+        self._dl0_base = self.input_url.parents[7]
+        self._acada_user = self.input_url.parents[5].name
+        self._date_dirs = self.input_url.parent.relative_to(self.input_url.parents[3])
+
         self._open_telescope_files()
+
+    def _get_tel_events_directory(self, tel_id):
+        return (
+            self._dl0_base / f"TEL{tel_id:03d}" / self._acada_user
+            / "acada-adh/events" / self._date_dirs
+        )
+
+    @classmethod
+    def is_compatible(cls, input_url):
+        return _is_compatible(
+            input_url,
+            extname="SubarrayEvents",
+            allowed_protos={"DL0v1.Subarray.Event"},
+        )
 
     def _open_telescope_files(self):
         self._telescope_files = {}
         for tel_id in self.subarray.tel:
-            name = ARRAY_ELEMENTS[tel_id]["name"]
 
             # get the directory, where we should look for files
-            tel_dir = Path(
-                str(self.input_url.parent)
-                .replace("triggers", "events")
-                .replace("array", name)
-            )
+            tel_dir = self._get_tel_events_directory(tel_id)
+                
             try:
                 first_file = sorted(
                     tel_dir.glob(f"*_SBID*{self.sb_id}_OBSID*{self.obs_id}*.fits.fz")
@@ -176,45 +231,122 @@ class ProtozfitsDL0EventSource(EventSource):
 
             yield array_event
 
+
+class ProtozfitsDL0TelescopeEventSource(EventSource):
+    """
+    DL0 Protozfits Telescope EventSource.
+
+    The ``input_url`` is one of the telescope events files.
+    """
+    subarray_id = Integer(default_value=1).tag(config=True)
+
     @classmethod
     def is_compatible(cls, input_url):
-        from astropy.io import fits
+        return _is_compatible(
+            input_url,
+            extname="Events",
+            allowed_protos={"DL0v1.Telescope.Event"},
+        )
 
-        # this allows us to just use try/except around the opening of the fits file,
-        stack = ExitStack()
+    def __init__(self, input_url=None, **kwargs):
+        # this enables passing input_url as posarg, kwarg and via the config/parent
+        if input_url is not None:
+            kwargs["input_url"] = input_url
 
-        with stack:
-            try:
-                hdul = stack.enter_context(fits.open(input_url))
-            except Exception as e:
-                log.debug(f"Error trying to open input file as fits: {e}")
-                return False
+        super().__init__(**kwargs)
 
-            if "SubarrayEvents" not in hdul:
-                log.debug("FITS file does not contain an Events HDU, returning False")
-                return False
+        # we will open a lot of files, this helps keeping it clean
+        self._exit_stack = ExitStack()
+        self._subarray = build_subarray_description(self.subarray_id)
 
-            header = hdul["SubarrayEvents"].header
+        self._multi_file = self._exit_stack.enter_context(
+            MultiFiles(self.input_url)
+        )
+        self.sb_id = self._multi_file.data_stream.sb_id
+        self.obs_id = self._multi_file.data_stream.obs_id
+        self.tel_id = self._multi_file.data_stream.tel_id
 
-        if header["XTENSION"] != "BINTABLE":
-            log.debug("Events HDU is not a bintable")
-            return False
+        self._observation_blocks = {
+            self.obs_id: ObservationBlockContainer(
+                obs_id=np.uint64(self.obs_id), sb_id=np.uint64(self.sb_id)
+            )
+        }
+        self._scheduling_blocks = {
+            self.sb_id: SchedulingBlockContainer(sb_id=np.uint64(self.sb_id))
+        }
 
-        if not header.get("ZTABLE", False):
-            log.debug("ZTABLE is not in header or False")
-            return False
 
-        if header.get("ORIGIN", "") != "CTA":
-            log.debug("ORIGIN != CTA")
-            return False
+    def close(self):
+        self._exit_stack.__exit__(None, None, None)
 
-        proto_class = header.get("PBFHEAD")
-        if proto_class is None:
-            log.debug("Missing PBFHEAD key")
-            return False
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._exit_stack.__exit__(exc_type, exc_value, traceback)
 
-        if proto_class != "DL0v1.Subarray.Event":
-            log.debug(f"Unsupported PBFHEAD: {proto_class}")
-            return False
+    @property
+    def is_simulation(self) -> bool:
+        return False
 
-        return True
+    @property
+    def datalevels(self) -> Tuple[DataLevel]:
+        return (DataLevel.DL0, )
+
+    @property
+    def subarray(self) -> SubarrayDescription:
+        return self._subarray
+
+    @property
+    def observation_blocks(self) -> Dict[int, ObservationBlockContainer]:
+        return self._observation_blocks
+
+    @property
+    def scheduling_blocks(self) -> Dict[int, SchedulingBlockContainer]:
+        return self._scheduling_blocks
+
+    def _fill_event(self, zfits_event) -> ArrayEventContainer:
+        tel_id = self.tel_id
+        # until ctapipe allows telescope event sources
+        # we have to fill an arrayevent with just one telescope here
+        time = cta_high_res_to_time(
+            zfits_event.event_time_s,
+            zfits_event.event_time_qns
+        )
+        array_event = ArrayEventContainer(
+            index=EventIndexContainer(
+                obs_id=self.obs_id,
+                event_id=zfits_event.event_id,
+            ),
+            trigger=TriggerContainer(
+                tels_with_trigger=[self.tel_id],
+                time=time,
+            ),
+        )
+        array_event.trigger.tel[tel_id] = TelescopeTriggerContainer(time=time)
+
+        n_channels = zfits_event.num_channels
+        n_pixels = zfits_event.num_pixels_survived
+        n_samples = zfits_event.num_samples
+        shape = (n_channels, n_pixels, n_samples)
+        # FIXME: ctapipe  can only handle a single gain
+        waveform = zfits_event.waveform.reshape(shape)[0]
+        offset = self._multi_file.data_stream.waveform_offset
+        scale = self._multi_file.data_stream.waveform_scale
+        waveform = (waveform.astype(np.float32) - offset) / scale
+
+        array_event.dl0.tel[tel_id] = DL0CameraContainer(
+            pixel_status=zfits_event.pixel_status,
+            event_type=EventType(zfits_event.event_type),
+            selected_gain_channel=np.zeros(n_pixels, dtype=np.int8),
+            event_time=cta_high_res_to_time(
+                zfits_event.event_time_s,
+                zfits_event.event_time_qns,
+            ),
+            waveform=waveform,
+            first_cell_id=zfits_event.first_cell_id,
+            # module_hires_local_clock_counter=zfits_event.module_hires_local_clock_counter,
+        )
+
+        return array_event
+
+    def _generator(self):
+        for event in self._multi_file:
+            yield self._fill_event(event)

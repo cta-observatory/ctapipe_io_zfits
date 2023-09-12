@@ -4,7 +4,7 @@ import pytest
 from astropy.time import Time
 from ctapipe.core.tool import run_tool
 from ctapipe.instrument import SubarrayDescription
-from ctapipe.io import EventSource
+from ctapipe.io import EventSource, TableLoader
 from ctapipe.tools.process import ProcessorTool
 
 
@@ -60,3 +60,40 @@ def test_process(dummy_dl0, tmp_path):
             ],
             raises=True,
         )
+
+
+
+def test_telescope_event_source(dummy_tel_file):
+    from ctapipe_io_zfits.dl0 import ProtozfitsDL0TelescopeEventSource
+
+    assert ProtozfitsDL0TelescopeEventSource.is_compatible(dummy_tel_file)
+
+    with EventSource(dummy_tel_file) as source:
+        assert isinstance(source, ProtozfitsDL0TelescopeEventSource)
+
+        for event in source:
+            assert event.dl0.tel.keys() == {1}
+
+
+def test_process_tel_events(dummy_tel_file, tmp_path):
+    path = tmp_path / "dummy.dl1.h5"
+
+    with pytest.warns(UserWarning, match="Encountered an event with no R1 data"):
+        run_tool(
+            ProcessorTool(),
+            [
+                f"--input={dummy_tel_file}",
+                f"--output={path}",
+                "--write-images",
+                "--write-parameters",
+            ],
+            raises=True,
+        )
+
+    with TableLoader(path) as loader:
+        events = loader.read_telescope_events()
+        assert len(events) == 100
+        np.testing.assert_array_equal(events["obs_id"], 456)
+        np.testing.assert_array_equal(events["tel_id"], 1)
+        np.testing.assert_array_equal(events["event_id"], np.arange(1, 101))
+

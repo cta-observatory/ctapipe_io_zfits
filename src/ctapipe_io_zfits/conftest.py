@@ -62,7 +62,7 @@ def dl0_base(acada_base):
     dl0 = acada_base / "DL0"
     dl0.mkdir(exist_ok=True)
 
-    lst_base = dl0 / "LSTN-01" / acada_user / "acada-adh"
+    lst_base = dl0 / "TEL001" / acada_user / "acada-adh"
     lst_events = lst_base / "events"
     lst_monitoring = lst_base / "monitoring"
     array_triggers = dl0 / "array" / acada_user / "acada-adh" / "triggers"
@@ -80,7 +80,7 @@ def dl0_base(acada_base):
 @pytest.fixture(scope="session")
 def dummy_dl0(dl0_base):
     trigger_dir = dl0_base / "array" / acada_user / "acada-adh/triggers/2023/08/01/"
-    lst_event_dir = dl0_base / "LSTN-01" / acada_user / "acada-adh/events/2023/08/01/"
+    lst_event_dir = dl0_base / "TEL001" / acada_user / "acada-adh/events/2023/08/01/"
     subarray_id = 1
     sb_id = 123
     obs_id = 456
@@ -207,3 +207,9 @@ def dummy_dl0(dl0_base):
             time = time + 0.001 * u.s
 
     return trigger_path
+
+
+@pytest.fixture(scope="session")
+def dummy_tel_file(dummy_dl0, dl0_base):
+    name = "TEL001_SDH001_20230802T021531_SBID0000000000000000123_OBSID0000000000000000456_TEL_SHOWER_CHUNK000.fits.fz"
+    return dl0_base / "TEL001/ctao-acada-n/acada-adh/events/2023/08/01/" / name

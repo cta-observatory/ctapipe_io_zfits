@@ -33,6 +33,8 @@ default_role = "py:obj"
 # intersphinx allows referencing other packages sphinx docs
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3.9", None),
+    "traitlets": ("https://traitlets.readthedocs.io/en/stable/", None),
+    "ctapipe": ("https://ctapipe.readthedocs.io/en/v0.20.0/", None),
 }
 
 # -- Options for HTML output -------------------------------------------------
@@ -43,3 +45,6 @@ html_theme = "pydata_sphinx_theme"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 html_logo = "_static/cta.png"
+
+# fixes "no sub file found" for members inherited from traitlets
+numpydoc_class_members_toctree = False

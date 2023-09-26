@@ -190,7 +190,7 @@ def dummy_dl0(dl0_base):
             # TODO: randomize event to test actually parsing it
 
             # TODO: fill actual signal into waveform, not just 0
-            waveform = np.zeros((2, 1855, 40), dtype=np.float32)
+            waveform = np.zeros((1, 1855, 40), dtype=np.float32)
 
             lst_event_files[sdh_id].write_message(
                 DL0_Telescope.Event(
@@ -202,7 +202,7 @@ def dummy_dl0(dl0_base):
                     # identified as signal, low gain stored, high gain stored
                     pixel_status=to_anyarray(np.full(1855, 0b00001101, dtype=np.uint8)),
                     waveform=to_anyarray(convert_waveform(waveform)),
-                    num_channels=2,
+                    num_channels=1,
                     num_samples=40,
                     num_pixels_survived=1855,
                 )

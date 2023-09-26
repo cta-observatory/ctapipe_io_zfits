@@ -60,6 +60,7 @@ def test_process(dummy_dl0, tmp_path):
                 f"--output={path}",
                 "--write-images",
                 "--write-parameters",
+                "--EventTypeFilter.allowed_types=SUBARRAY",
             ],
             raises=True,
         )

@@ -12,6 +12,7 @@ from ctapipe.containers import (
     EventIndexContainer,
     EventType,
     ObservationBlockContainer,
+    PixelStatus,
     SchedulingBlockContainer,
     TelescopeTriggerContainer,
     TriggerContainer,
@@ -19,6 +20,7 @@ from ctapipe.containers import (
 from ctapipe.core.traits import Integer
 from ctapipe.instrument import SubarrayDescription
 from ctapipe.io import DataLevel, EventSource
+from ctapipe.io.simteleventsource import GainChannel
 from protozfits import File
 
 from .instrument import build_subarray_description, get_array_elements_by_id
@@ -73,28 +75,52 @@ def _is_compatible(input_url, extname, allowed_protos):
     return True
 
 
-def _fill_dl0_container(tel_event, data_stream):
+def _fill_dl0_container(tel_event, data_stream, camera_config, camera_geometry):
     n_channels = tel_event.num_channels
-    n_pixels = tel_event.num_pixels_survived
+    n_pixels_stored = tel_event.num_pixels_survived
     n_samples = tel_event.num_samples
-    shape = (n_channels, n_pixels, n_samples)
-    # FIXME: ctapipe  can only handle a single gain
-    waveform = tel_event.waveform.reshape(shape)[0]
+    shape = (n_channels, n_pixels_stored, n_samples)
+    waveform = tel_event.waveform.reshape(shape)
     offset = data_stream.waveform_offset
     scale = data_stream.waveform_scale
-    waveform = waveform.astype(np.float32) / scale - offset
+
+    zfits_waveform = waveform.astype(np.float32) / scale - offset
+
+    pixel_stored = PixelStatus.get_dvr_status(tel_event.pixel_status) != 0
+    n_pixels_nominal = camera_geometry.n_pixels
+
+    # fill not readout pixels with 0, reorder pixels, use 2d array when gain reduced
+    if n_channels == 2:
+        waveform = np.zeros((n_channels, n_pixels_nominal, n_samples), dtype=np.float32)
+        waveform[:, camera_config.pixel_id_map[pixel_stored]] = zfits_waveform
+    else:
+        waveform = np.zeros((n_pixels_nominal, n_samples), dtype=np.float32)
+        waveform[camera_config.pixel_id_map[pixel_stored]] = zfits_waveform[0]
+
+    # reorder to nominal pixel order
+    pixel_status = np.zeros(n_pixels_nominal, dtype=tel_event.pixel_status.dtype)
+    pixel_status[camera_config.pixel_id_map] = tel_event.pixel_status
+
+    channel_info = PixelStatus.get_channel_info(pixel_status)
+    if n_channels == 1:
+        selected_gain_channel = np.where(
+            channel_info == PixelStatus.HIGH_GAIN_STORED,
+            GainChannel.HIGH,
+            GainChannel.LOW,
+        )
+    else:
+        selected_gain_channel = None
 
     return DL0CameraContainer(
         pixel_status=tel_event.pixel_status,
         event_type=EventType(tel_event.event_type),
-        selected_gain_channel=np.zeros(n_pixels, dtype=np.int8),
+        selected_gain_channel=selected_gain_channel,
         event_time=cta_high_res_to_time(
             tel_event.event_time_s,
             tel_event.event_time_qns,
         ),
         waveform=waveform,
         first_cell_id=tel_event.first_cell_id,
-        # module_hires_local_clock_counter=tel_event.module_hires_local_clock_counter,
     )
 
 
@@ -236,6 +262,8 @@ class ProtozfitsDL0EventSource(EventSource):
                 array_event.dl0.tel[tel_id] = _fill_dl0_container(
                     tel_event,
                     tel_file.data_stream,
+                    tel_file.camera_config,
+                    self.subarray.tel[tel_id].camera.geometry,
                 )
 
             yield array_event
@@ -330,6 +358,8 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
         array_event.dl0.tel[tel_id] = _fill_dl0_container(
             zfits_event,
             self._multi_file.data_stream,
+            self._multi_file.camera_config,
+            self.subarray.tel[tel_id].camera.geometry,
         )
         return array_event
 

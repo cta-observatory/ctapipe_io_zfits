@@ -1,11 +1,10 @@
 """
 Functions handling time, mainly conversion of CTA timestamps to astropy
 """
-from astropy.time import Time
 import numpy as np
+from astropy.time import Time
 
-
-EPOCH = Time(0, format='unix_tai', scale='tai')
+EPOCH = Time(0, format="unix_tai", scale="tai")
 DAY_TO_S = 86400
 CENTRAL_MODULE = 132
 S_TO_QNS = 4e9
@@ -13,27 +12,27 @@ QNS_TO_S = 0.25e-9
 
 
 def cta_high_res_to_time(seconds, quarter_nanoseconds):
-    '''Convert cta high resolution timestamp to astropy Time'''
+    """Convert cta high resolution timestamp to astropy Time"""
     # unix_tai accepts two floats for maximum precision
     # we can just pass integral and fractional part
     fractional_seconds = quarter_nanoseconds * QNS_TO_S
     return Time(
         seconds,
-        fractional_seconds, 
-        format='unix_tai',
+        fractional_seconds,
+        format="unix_tai",
         # this is only for displaying iso timestamp, not any actual precision
         precision=9,
     )
 
 
 def to_seconds(days):
-    '''Returns whole and fractional seconds from a number in days'''
+    """Returns whole and fractional seconds from a number in days"""
     seconds = days * DAY_TO_S
     return np.divmod(seconds, 1)
 
 
 def time_to_cta_high_res(time):
-    '''Convert astropy Time to cta high precision timestamp'''
+    """Convert astropy Time to cta high precision timestamp"""
     # make sure we are in TAI
     time = time.tai
 

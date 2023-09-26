@@ -65,7 +65,6 @@ def test_process(dummy_dl0, tmp_path):
         )
 
 
-
 def test_telescope_event_source(dummy_tel_file):
     from ctapipe_io_zfits.dl0 import ProtozfitsDL0TelescopeEventSource
 
@@ -99,4 +98,3 @@ def test_process_tel_events(dummy_tel_file, tmp_path):
         np.testing.assert_array_equal(events["obs_id"], 456)
         np.testing.assert_array_equal(events["tel_id"], 1)
         np.testing.assert_array_equal(events["event_id"], np.arange(1, 101))
-

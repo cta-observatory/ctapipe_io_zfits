@@ -34,7 +34,6 @@ obs_start = Time("2023-08-02T02:15:31")
 timezone_cta_n = ZoneInfo("Atlantic/Canary")
 
 
-
 def to_anyarray(array):
     type_ = DTYPE_TO_ANYARRAY_TYPE[array.dtype.type]
     return AnyArray(type=type_, data=array.tobytes())
@@ -77,7 +76,6 @@ def dl0_base(acada_base):
     return dl0
 
 
-
 @pytest.fixture(scope="session")
 def dummy_dl0(dl0_base):
     trigger_dir = dl0_base / "array" / acada_user / "acada-adh/triggers/2023/08/01/"
@@ -85,7 +83,6 @@ def dummy_dl0(dl0_base):
     subarray_id = 1
     sb_id = 123
     obs_id = 456
-    producer_id = 1  # what is this?
     sb_creator_id = 1
     sdh_ids = (1, 2, 3, 4)
 
@@ -95,13 +92,13 @@ def dummy_dl0(dl0_base):
     lst_event_pattern = f"TEL001_SDH{{sdh_id:03d}}_{obs_start_path_string}_SBID{sb_id:019d}_OBSID{obs_id:019d}_TEL_SHOWER_CHUNK{{chunk_id:03d}}.fits.fz"  # noqa
     trigger_path = trigger_dir / filename
 
-    subarray_data_stream = DL0_Subarray.DataStream(
-        subarray_id=subarray_id,
-        sb_id=sb_id,
-        obs_id=obs_id,
-        producer_id=producer_id,
-        sb_creator_id=sb_creator_id,
-    )
+    # subarray_data_stream = DL0_Subarray.DataStream(
+    #     subarray_id=subarray_id,
+    #     sb_id=sb_id,
+    #     obs_id=obs_id,
+    #     producer_id=1  # FIXME: what is correct here?,
+    #     sb_creator_id=sb_creator_id,
+    # )
 
     lst_data_stream = DL0_Telescope.DataStream(
         tel_id=1,
@@ -195,7 +192,6 @@ def dummy_dl0(dl0_base):
             # TODO: fill actual signal into waveform, not just 0
             waveform = np.zeros((2, 1855, 40), dtype=np.float32)
 
-
             lst_event_files[sdh_id].write_message(
                 DL0_Telescope.Event(
                     event_id=event_id,
@@ -222,5 +218,5 @@ def dummy_dl0(dl0_base):
 
 @pytest.fixture(scope="session")
 def dummy_tel_file(dummy_dl0, dl0_base):
-    name = "TEL001_SDH001_20230802T021531_SBID0000000000000000123_OBSID0000000000000000456_TEL_SHOWER_CHUNK000.fits.fz"
+    name = "TEL001_SDH001_20230802T021531_SBID0000000000000000123_OBSID0000000000000000456_TEL_SHOWER_CHUNK000.fits.fz"  # noqa
     return dl0_base / "TEL001/ctao-acada-n/acada-adh/events/2023/08/01/" / name

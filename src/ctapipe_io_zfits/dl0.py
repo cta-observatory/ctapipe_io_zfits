@@ -3,7 +3,6 @@ DL0 Protozfits EventSource
 """
 import logging
 from contextlib import ExitStack
-from pathlib import Path
 from typing import Dict, Tuple
 
 import numpy as np
@@ -14,8 +13,8 @@ from ctapipe.containers import (
     EventType,
     ObservationBlockContainer,
     SchedulingBlockContainer,
-    TriggerContainer,
     TelescopeTriggerContainer,
+    TriggerContainer,
 )
 from ctapipe.core.traits import Integer
 from ctapipe.instrument import SubarrayDescription
@@ -74,7 +73,6 @@ def _is_compatible(input_url, extname, allowed_protos):
     return True
 
 
-
 def _fill_dl0_container(tel_event, data_stream):
     n_channels = tel_event.num_channels
     n_pixels = tel_event.num_pixels_survived
@@ -108,6 +106,7 @@ class ProtozfitsDL0EventSource(EventSource):
     will then look for the other data files according to the filename and
     directory schema layed out in the draft of the ACADA - DPPS ICD.
     """
+
     subarray_id = Integer(default_value=1).tag(config=True)
 
     def __init__(self, input_url=None, **kwargs):
@@ -121,7 +120,7 @@ class ProtozfitsDL0EventSource(EventSource):
             File(str(self.input_url))
         )
         self._subarray_trigger_stream = None
-        if hasattr(self._subarray_trigger_file, "DataStream"): 
+        if hasattr(self._subarray_trigger_file, "DataStream"):
             self._subarray_trigger_stream = self._subarray_trigger_file.DataStream[0]
             self.sb_id = self._subarray_trigger_stream.sb_id
             self.obs_id = self._subarray_trigger_stream.obs_id
@@ -142,7 +141,7 @@ class ProtozfitsDL0EventSource(EventSource):
             self.sb_id: SchedulingBlockContainer(sb_id=np.uint64(self.sb_id))
         }
 
-        # <prefix>/DL0/<ae-id>/<acada-user>/acada-adh/events/<YYYY>/<MM>/<DD>/ 
+        # <prefix>/DL0/<ae-id>/<acada-user>/acada-adh/events/<YYYY>/<MM>/<DD>/
         self._dl0_base = self.input_url.parents[7]
         self._acada_user = self.input_url.parents[5].name
         self._date_dirs = self.input_url.parent.relative_to(self.input_url.parents[3])
@@ -151,8 +150,11 @@ class ProtozfitsDL0EventSource(EventSource):
 
     def _get_tel_events_directory(self, tel_id):
         return (
-            self._dl0_base / f"TEL{tel_id:03d}" / self._acada_user
-            / "acada-adh/events" / self._date_dirs
+            self._dl0_base
+            / f"TEL{tel_id:03d}"
+            / self._acada_user
+            / "acada-adh/events"
+            / self._date_dirs
         )
 
     @classmethod
@@ -166,10 +168,9 @@ class ProtozfitsDL0EventSource(EventSource):
     def _open_telescope_files(self):
         self._telescope_files = {}
         for tel_id in self.subarray.tel:
-
             # get the directory, where we should look for files
             tel_dir = self._get_tel_events_directory(tel_id)
-                
+
             try:
                 first_file = sorted(
                     tel_dir.glob(f"*_SBID*{self.sb_id}_OBSID*{self.obs_id}*.fits.fz")
@@ -232,7 +233,6 @@ class ProtozfitsDL0EventSource(EventSource):
                         f" event_id of telescope event: {tel_event.event_id}"
                     )
 
-
                 array_event.dl0.tel[tel_id] = _fill_dl0_container(
                     tel_event,
                     tel_file.data_stream,
@@ -247,6 +247,7 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
 
     The ``input_url`` is one of the telescope events files.
     """
+
     subarray_id = Integer(default_value=1).tag(config=True)
 
     @classmethod
@@ -268,9 +269,7 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
         self._exit_stack = ExitStack()
         self._subarray = build_subarray_description(self.subarray_id)
 
-        self._multi_file = self._exit_stack.enter_context(
-            MultiFiles(self.input_url)
-        )
+        self._multi_file = self._exit_stack.enter_context(MultiFiles(self.input_url))
         self.sb_id = self._multi_file.data_stream.sb_id
         self.obs_id = self._multi_file.data_stream.obs_id
         self.tel_id = self._multi_file.data_stream.tel_id
@@ -284,7 +283,6 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
             self.sb_id: SchedulingBlockContainer(sb_id=np.uint64(self.sb_id))
         }
 
-
     def close(self):
         self._exit_stack.__exit__(None, None, None)
 
@@ -297,7 +295,7 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
 
     @property
     def datalevels(self) -> Tuple[DataLevel]:
-        return (DataLevel.DL0, )
+        return (DataLevel.DL0,)
 
     @property
     def subarray(self) -> SubarrayDescription:
@@ -316,8 +314,7 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
         # until ctapipe allows telescope event sources
         # we have to fill an arrayevent with just one telescope here
         time = cta_high_res_to_time(
-            zfits_event.event_time_s,
-            zfits_event.event_time_qns
+            zfits_event.event_time_s, zfits_event.event_time_qns
         )
         array_event = ArrayEventContainer(
             index=EventIndexContainer(

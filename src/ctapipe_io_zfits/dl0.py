@@ -236,8 +236,11 @@ class ProtozfitsDL0EventSource(EventSource):
         return self._scheduling_blocks
 
     def _generator(self):
-        for subarray_trigger in self._subarray_trigger_file.SubarrayEvents:
+        for count, subarray_trigger in enumerate(
+            self._subarray_trigger_file.SubarrayEvents
+        ):
             array_event = ArrayEventContainer(
+                count=count,
                 index=EventIndexContainer(
                     obs_id=subarray_trigger.obs_id, event_id=subarray_trigger.event_id
                 ),
@@ -337,7 +340,7 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
     def scheduling_blocks(self) -> Dict[int, SchedulingBlockContainer]:
         return self._scheduling_blocks
 
-    def _fill_event(self, zfits_event) -> ArrayEventContainer:
+    def _fill_event(self, count, zfits_event) -> ArrayEventContainer:
         tel_id = self.tel_id
         # until ctapipe allows telescope event sources
         # we have to fill an arrayevent with just one telescope here
@@ -345,6 +348,7 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
             zfits_event.event_time_s, zfits_event.event_time_qns
         )
         array_event = ArrayEventContainer(
+            count=count,
             index=EventIndexContainer(
                 obs_id=self.obs_id,
                 event_id=zfits_event.event_id,
@@ -364,5 +368,5 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
         return array_event
 
     def _generator(self):
-        for event in self._multi_file:
-            yield self._fill_event(event)
+        for count, zfits_event in enumerate(self._multi_file):
+            yield self._fill_event(count, zfits_event)

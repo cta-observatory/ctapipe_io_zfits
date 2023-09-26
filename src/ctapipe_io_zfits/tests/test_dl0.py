@@ -31,7 +31,8 @@ def test_subarray_events(dummy_dl0):
 
     with EventSource(dummy_dl0) as source:
         n_read = 0
-        for array_event in source:
+        for i, array_event in enumerate(source):
+            assert array_event.count == i
             assert array_event.index.obs_id == 456
             assert array_event.index.event_id == n_read + 1
             dt = np.abs(array_event.trigger.time - time).to(u.ns)
@@ -74,7 +75,8 @@ def test_telescope_event_source(dummy_tel_file):
     with EventSource(dummy_tel_file) as source:
         assert isinstance(source, ProtozfitsDL0TelescopeEventSource)
 
-        for event in source:
+        for i, event in enumerate(source):
+            assert event.count == i
             assert event.dl0.tel.keys() == {1}
 
 

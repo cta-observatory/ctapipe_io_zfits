@@ -29,6 +29,7 @@ from .time import cta_high_res_to_time
 
 __all__ = [
     "ProtozfitsDL0EventSource",
+    "ProtozfitsDL0TelescopeEventSource",
 ]
 
 log = logging.getLogger(__name__)
@@ -322,22 +323,27 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
 
     @property
     def is_simulation(self) -> bool:
+        """If data comes from simulations"""
         return False
 
     @property
     def datalevels(self) -> Tuple[DataLevel]:
+        """Provided data levels"""
         return (DataLevel.DL0,)
 
     @property
     def subarray(self) -> SubarrayDescription:
+        """The subarray"""
         return self._subarray
 
     @property
     def observation_blocks(self) -> Dict[int, ObservationBlockContainer]:
+        """The observation blocks"""
         return self._observation_blocks
 
     @property
     def scheduling_blocks(self) -> Dict[int, SchedulingBlockContainer]:
+        """The scheduling blocks"""
         return self._scheduling_blocks
 
     def _fill_event(self, count, zfits_event) -> ArrayEventContainer:

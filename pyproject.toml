@@ -21,7 +21,7 @@ requires-python = ">=3.9"
 dependencies = [
     "numpy",
     "protozfits",
-    "ctapipe~=0.19.3",
+    "ctapipe~=0.20.0",
 ]
 
 [project.optional-dependencies]

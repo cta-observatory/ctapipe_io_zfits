@@ -99,13 +99,13 @@ jobs:
           python -c 'import ctapipe_io_zfits ; print(ctapipe_io_zfits.__version__)'
 
       - name: Build docs
-        run: make html SPHINXOPTS="-W --keep-going -n --color -j auto"
+        run: make -C docs html SPHINXOPTS="-W --keep-going -n --color -j auto"
 
       - name: Deploy to github pages
         # only run on push to master
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: build/html
+          folder: docs/build/html
           clean: true
           single_commit: true

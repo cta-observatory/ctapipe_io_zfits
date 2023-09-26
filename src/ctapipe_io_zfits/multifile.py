@@ -33,7 +33,7 @@ class MultiFiles(Component):
     ).tag(config=True)
 
     all_chunks = Bool(
-        default_value=True,
+        default_value=False,
         help="If true, open subsequent chunks when current one is exhausted",
     ).tag(config=True)
 
@@ -59,7 +59,7 @@ class MultiFiles(Component):
         self.directory = self.path.parent
 
         # glob for files and group by data_source
-        pattern = self.chunk_re.sub(self.data_source_re.sub(self.path.name, "*"), "*")
+        pattern = self.chunk_re.sub("*", self.data_source_re.sub("*", self.path.name))
         paths = self.directory.glob(pattern)
 
         self._files = defaultdict(list)

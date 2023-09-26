@@ -207,7 +207,7 @@ class ProtozfitsDL0EventSource(EventSource):
                 continue
 
             self._telescope_files[tel_id] = self._exit_stack.enter_context(
-                MultiFiles(first_file)
+                MultiFiles(first_file, parent=self)
             )
 
     def close(self):
@@ -301,7 +301,9 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
         self._exit_stack = ExitStack()
         self._subarray = build_subarray_description(self.subarray_id)
 
-        self._multi_file = self._exit_stack.enter_context(MultiFiles(self.input_url))
+        self._multi_file = self._exit_stack.enter_context(
+            MultiFiles(self.input_url, parent=self)
+        )
         self.sb_id = self._multi_file.data_stream.sb_id
         self.obs_id = self._multi_file.data_stream.obs_id
         self.tel_id = self._multi_file.data_stream.tel_id

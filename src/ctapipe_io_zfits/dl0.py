@@ -87,7 +87,12 @@ def _fill_dl0_container(tel_event, data_stream, camera_config, camera_geometry):
 
     zfits_waveform = waveform.astype(np.float32) / scale - offset
 
-    pixel_stored = PixelStatus.get_dvr_status(tel_event.pixel_status) != 0
+    pixel_status = tel_event.pixel_status
+    # FIXME: seems ACADA doesn't set pixels to "stored" when no DVR is applied
+    if n_pixels_stored == camera_config.num_pixels and np.all(PixelStatus.get_dvr_status(pixel_status) == 0):
+        pixel_status = pixel_status | PixelStatus.DVR_STORED_AS_SIGNAL
+
+    pixel_stored = PixelStatus.get_dvr_status(pixel_status) != 0
     n_pixels_nominal = camera_geometry.n_pixels
 
     # fill not readout pixels with 0, reorder pixels, use 2d array when gain reduced
@@ -100,7 +105,8 @@ def _fill_dl0_container(tel_event, data_stream, camera_config, camera_geometry):
 
     # reorder to nominal pixel order
     pixel_status = np.zeros(n_pixels_nominal, dtype=tel_event.pixel_status.dtype)
-    pixel_status[camera_config.pixel_id_map] = tel_event.pixel_status
+    pixel_status[camera_config.pixel_id_map] = pixel_status
+
 
     channel_info = PixelStatus.get_channel_info(pixel_status)
     if n_channels == 1:

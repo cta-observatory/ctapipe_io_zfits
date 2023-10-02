@@ -76,7 +76,7 @@ def _is_compatible(input_url, extname, allowed_protos):
     return True
 
 
-def _fill_dl0_container(tel_event, data_stream, camera_config, camera_geometry):
+def _fill_dl0_container(tel_event, data_stream, camera_config, camera_geometry, ignore_samples_start=0, ignore_samples_end=0):
     n_channels = tel_event.num_channels
     n_pixels_stored = tel_event.num_pixels_survived
     n_samples = tel_event.num_samples
@@ -102,6 +102,11 @@ def _fill_dl0_container(tel_event, data_stream, camera_config, camera_geometry):
     else:
         waveform = np.zeros((n_pixels_nominal, n_samples), dtype=np.float32)
         waveform[camera_config.pixel_id_map[pixel_stored]] = zfits_waveform[0]
+
+    if ignore_samples_start != 0 or ignore_samples_end != 0:
+        start = ignore_samples_start
+        end = n_samples - ignore_samples_end
+        waveform = waveform[..., start:end]
 
     # reorder to nominal pixel order
     pixel_status = np.zeros(n_pixels_nominal, dtype=tel_event.pixel_status.dtype)
@@ -285,8 +290,9 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
 
     The ``input_url`` is one of the telescope events files.
     """
-
     subarray_id = Integer(default_value=1).tag(config=True)
+    ignore_samples_start = Integer(default_value=0).tag(config=True)
+    ignore_samples_end = Integer(default_value=0).tag(config=True)
 
     @classmethod
     def is_compatible(cls, input_url):
@@ -378,6 +384,8 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
             self._multi_file.data_stream,
             self._multi_file.camera_config,
             self.subarray.tel[tel_id].camera.geometry,
+            ignore_samples_start=self.ignore_samples_start,
+            ignore_samples_end=self.ignore_samples_end,
         )
         return array_event
 

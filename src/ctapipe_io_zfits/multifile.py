@@ -1,13 +1,17 @@
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from queue import Empty, PriorityQueue
 from typing import Any
+from astropy.io.fits import file
 
 from ctapipe.core import Component, Provenance
-from ctapipe.core.traits import Bool
+from ctapipe.core.traits import Bool, CaselessStrEnum
 from protozfits import File
 from traitlets import CRegExp
+
+from collections import namedtuple
 
 __all__ = ["MultiFiles"]
 
@@ -19,6 +23,59 @@ class NextEvent:
     priority: int
     event: Any = field(compare=False)
     data_source: str = field(compare=False)
+
+
+@dataclass()
+class FileInfo:
+    tel_id: int
+    data_source: str
+    sb_id: int
+    obs_id: int
+    chunk: int
+    sb_id_padding: int = 0
+    obs_id_padding: int = 0
+    chunk_padding: int = 0
+
+
+filename_conventions = {
+    # Tel001_SDH_3001_20231003T204445_sbid2000000008_obid2000000016_9.fits.fz
+    "acada_rel1": {
+        "re": re.compile(r"Tel(?P<tel_id>\d+)_(?P<data_source>SDH_\d+)_(?P<timestamp>\d{8}T\d{6})_sbid(?P<sb_id>\d+)_obid(?P<obs_id>\d+)_(?P<chunk>\d+)\.fits\.fz"),
+        "template": "Tel{tel_id:03d}_{data_source}_{timestamp}_sbid{sb_id:0{sb_id_padding}d}_obid{obs_id:0{obs_id_padding}d}_{chunk:0{chunk_padding}d}.fits.fz",
+    },
+    "acada_dpps_icd": {
+        "re": re.compile(r"TEL(?P<tel_id>\d+)_(?P<data_source>SDH_\d+)_(?P<timestamp>\d{8}T\d{6})_sbid(?P<sb_id>\d+)_obid(?P<obs_id>\d+)_(?P<chunk>\d+)\.fits\.fz"),
+        "template": "Tel{tel_id:03d}_{data_source}_{timestamp}_sbid{sb_id:0{sb_id_padding}d}_obid{obs_id:0{obs_id_padding}d}_{chunk:0{chunk_padding}d}.fits.fz",
+    }
+
+}
+
+
+def get_file_info(path, convention):
+    path = Path(path)
+
+    regex = filename_conventions[convention]["re"]
+    m = regex.match(path.name)
+    if m is None:
+        raise ValueError(f"Filename {path.name} did not match convention {convention} with regex {regex}")
+
+    groups = m.groupdict()
+    return FileInfo(
+        tel_id=int(groups["tel_id"]),
+        data_source=groups["data_source"],
+        sb_id=int(groups["sb_id"]),
+        obs_id=int(groups["obs_id"]),
+        chunk=int(groups["chunk"]),
+    )
+
+
+@dataclass(order=True)
+class NextEvent:
+    """Class to get sorted access to events from multiple files"""
+    priority: int
+    event: Any = field(compare=False)
+    stream: int = field(compare=False)
+
 
 
 class MultiFiles(Component):
@@ -37,8 +94,11 @@ class MultiFiles(Component):
         help="If true, open subsequent chunks when current one is exhausted",
     ).tag(config=True)
 
-    data_source_re = CRegExp(r"SDH\d+").tag(config=True)
-    chunk_re = CRegExp(r"CHUNK\d+").tag(config=True)
+    filename_convention = CaselessStrEnum(
+        values=list(filename_conventions.keys()),
+        default_value="acada_rel1",
+    ).tag(config=True)
+
 
     def __init__(self, path, *args, **kwargs):
         """
@@ -56,33 +116,40 @@ class MultiFiles(Component):
         if not self.path.is_file():
             raise IOError(f"input path {path} is not a file")
 
+        file_info = get_file_info(path, convention=self.filename_convention)
         self.directory = self.path.parent
+        self.filename_template = filename_conventions[self.filename_convention]["template"]
 
-        # glob for files and group by data_source
-        pattern = self.chunk_re.sub("*", self.data_source_re.sub("*", self.path.name))
-        paths = self.directory.glob(pattern)
+        # figure out how many data sources we have:
+        data_source_pattern = self.filename_template.format(
+            tel_id=file_info.tel_id,
+            data_source="*",
+            timestamp="*",
+            sb_id=file_info.sb_id,
+            obs_id=file_info.obs_id,
+            chunk=file_info.chunk,
+            sb_id_padding=file_info.sb_id_padding,
+            obs_id_padding=file_info.obs_id_padding,
+            chunk_padding=file_info.chunk_padding,
+        )
 
-        self._files = defaultdict(list)
-        for p in paths:
-            data_source = self.data_source_re.search(p.name).group(0)
-            self._files[data_source].append(p)
+        self.log.debug("Looking for parallel data source using pattern: %s", data_source_pattern)
+        paths = sorted(self.directory.glob(data_source_pattern))
+        self.log.debug("Found matching paths: %s", paths)
+        self.data_sources = [get_file_info(path, convention=self.filename_convention).data_source for path in paths]
+        self.log.debug("Found the following data sources: %s", self.data_sources)
 
-        # for now we assume we got the first chunk
-        # and go through the chunks in lexicographic order
-        self._files = {
-            data_source: sorted(paths) for data_source, paths in self._files.items()
-        }
-
+        self._current_chunk = {data_source: file_info.chunk - 1 for data_source in self.data_sources}
         self._open_files = {}
-        self._current_chunk = {data_source: -1 for data_source in self._files}
 
+        self._first_file_info = file_info
         self._events = PriorityQueue()
         self._events_tables = {}
         self._events_headers = {}
         self.camera_config = None
         self.data_stream = None
 
-        for data_source in self._files:
+        for data_source in self.data_sources:
             self._load_next_chunk(data_source)
 
     @property
@@ -100,19 +167,29 @@ class MultiFiles(Component):
         if data_source in self._open_files:
             self._open_files.pop(data_source).close()
 
-        files = self._files[data_source]
         self._current_chunk[data_source] += 1
-        chunk_idx = self._current_chunk[data_source]
+        chunk = self._current_chunk[data_source]
 
-        if self._current_chunk[data_source] >= len(files):
-            path = files[chunk_idx - 1]
+        pattern = self.filename_template.format(
+            tel_id=self._first_file_info.tel_id,
+            data_source=data_source,
+            timestamp="*",
+            sb_id=self._first_file_info.sb_id,
+            obs_id=self._first_file_info.obs_id,
+            chunk=chunk,
+            sb_id_padding=self._first_file_info.sb_id_padding,
+            obs_id_padding=self._first_file_info.obs_id_padding,
+            chunk_padding=self._first_file_info.chunk_padding,
+        )
+        try:
+            path = next(self.directory.glob(pattern))
+        except StopIteration:
             raise FileNotFoundError(f"No further file after: {path}")
 
-        path = files[chunk_idx]
         Provenance().add_input_file(str(path), "DL0")
+        self.log.info("Opening file %s", path)
         file_ = File(str(path))
         self._open_files[data_source] = file_
-        self.log.info("Opened file %s", path)
 
         events_table = file_.Events
         self._events_tables[data_source] = events_table

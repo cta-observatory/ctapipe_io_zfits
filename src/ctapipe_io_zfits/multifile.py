@@ -88,6 +88,10 @@ class MultiFiles(Component):
         default_value="acada_rel1",
     ).tag(config=True)
 
+    pure_protobuf = Bool(
+        default_value=False,
+    ).tag(config=True)
+
 
     def __init__(self, path, *args, **kwargs):
         """
@@ -177,7 +181,7 @@ class MultiFiles(Component):
 
         Provenance().add_input_file(str(path), "DL0")
         self.log.info("Opening file %s", path)
-        file_ = File(str(path))
+        file_ = File(str(path), pure_protobuf=self.pure_protobuf)
         self._open_files[data_source] = file_
 
         events_table = file_.Events

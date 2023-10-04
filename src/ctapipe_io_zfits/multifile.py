@@ -1,19 +1,17 @@
 import re
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from queue import Empty, PriorityQueue
 from typing import Any
-from astropy.io.fits import file
 
 from ctapipe.core import Component, Provenance
 from ctapipe.core.traits import Bool, CaselessStrEnum
 from protozfits import File
-from traitlets import CRegExp
 
-from collections import namedtuple
 
-__all__ = ["MultiFiles"]
+__all__ = [
+    "MultiFiles",
+]
 
 
 @dataclass(order=True)
@@ -67,15 +65,6 @@ def get_file_info(path, convention):
         obs_id=int(groups["obs_id"]),
         chunk=int(groups["chunk"]),
     )
-
-
-@dataclass(order=True)
-class NextEvent:
-    """Class to get sorted access to events from multiple files"""
-    priority: int
-    event: Any = field(compare=False)
-    stream: int = field(compare=False)
-
 
 
 class MultiFiles(Component):

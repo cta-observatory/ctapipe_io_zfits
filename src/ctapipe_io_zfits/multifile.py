@@ -177,7 +177,7 @@ class MultiFiles(Component):
         try:
             path = next(self.directory.glob(pattern))
         except StopIteration:
-            raise FileNotFoundError(f"No further file after: {path}")
+            raise FileNotFoundError(f"No file found for pattern {self.directory}/{pattern}")
 
         Provenance().add_input_file(str(path), "DL0")
         self.log.info("Opening file %s", path)

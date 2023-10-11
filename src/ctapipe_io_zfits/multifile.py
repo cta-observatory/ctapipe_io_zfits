@@ -58,12 +58,23 @@ def get_file_info(path, convention):
         raise ValueError(f"Filename {path.name} did not match convention {convention} with regex {regex}")
 
     groups = m.groupdict()
+    sb_id = int(groups["sb_id"])
+    obs_id = int(groups["obs_id"])
+    chunk = int(groups["chunk"])
+
+    sb_id_padding = len(groups["sb_id"])
+    obs_id_padding = len(groups["obs_id"])
+    chunk_padding = len(groups["chunk"])
+
     return FileInfo(
         tel_id=int(groups["tel_id"]),
         data_source=groups["data_source"],
-        sb_id=int(groups["sb_id"]),
-        obs_id=int(groups["obs_id"]),
-        chunk=int(groups["chunk"]),
+        sb_id=sb_id,
+        obs_id=obs_id,
+        chunk=chunk,
+        sb_id_padding=sb_id_padding,
+        obs_id_padding=obs_id_padding,
+        chunk_padding=chunk_padding,
     )
 
 

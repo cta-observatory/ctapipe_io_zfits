@@ -375,6 +375,7 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
             ),
             trigger=TriggerContainer(
                 tels_with_trigger=[self.tel_id],
+                event_type=EventType(int(zfits_event.event_type)),
                 time=time,
             ),
         )

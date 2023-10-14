@@ -29,6 +29,7 @@ class FileInfo:
     sb_id: int
     obs_id: int
     chunk: int
+    data_type: str = ""
     sb_id_padding: int = 0
     obs_id_padding: int = 0
     chunk_padding: int = 0
@@ -45,9 +46,9 @@ filename_conventions = {
     "acada_dpps_icd": {
         # TEL001_SDH0001_20231013T220427_SBID0000000002000000013_OBSID0000000002000000027_CHUNK000.fits.fz
         "re": re.compile(
-            r"TEL(?P<tel_id>\d+)_(?P<data_source>SDH\d+)_(?P<timestamp>\d{8}T\d{6})_SBID(?P<sb_id>\d+)_OBSID(?P<obs_id>\d+)_CHUNK(?P<chunk>\d+)\.fits\.fz"  # noqa
+            r"TEL(?P<tel_id>\d+)_(?P<data_source>SDH\d+)_(?P<timestamp>\d{8}T\d{6})_SBID(?P<sb_id>\d+)_OBSID(?P<obs_id>\d+)(?P<data_type>_[a-zA-Z0-9_]+)?_CHUNK(?P<chunk>\d+)\.fits\.fz"  # noqa
         ),
-        "template": "TEL{tel_id:03d}_{data_source}_{timestamp}_SBID{sb_id:0{sb_id_padding}d}_OBSID{obs_id:0{obs_id_padding}d}_CHUNK{chunk:0{chunk_padding}d}.fits.fz",  # noqa
+        "template": "TEL{tel_id:03d}_{data_source}_{timestamp}_SBID{sb_id:0{sb_id_padding}d}_OBSID{obs_id:0{obs_id_padding}d}{data_type}_CHUNK{chunk:0{chunk_padding}d}.fits.fz",  # noqa
     },
 }
 
@@ -78,6 +79,7 @@ def get_file_info(path, convention):
         sb_id=sb_id,
         obs_id=obs_id,
         chunk=chunk,
+        data_type=groups.get("data_type", ""),
         sb_id_padding=sb_id_padding,
         obs_id_padding=obs_id_padding,
         chunk_padding=chunk_padding,
@@ -96,7 +98,7 @@ class MultiFiles(Component):
     ).tag(config=True)
 
     all_chunks = Bool(
-        default_value=False,
+        default_value=True,
         help="If true, open subsequent chunks when current one is exhausted",
     ).tag(config=True)
 
@@ -141,6 +143,7 @@ class MultiFiles(Component):
             sb_id=file_info.sb_id,
             obs_id=file_info.obs_id,
             chunk=file_info.chunk,
+            data_type=file_info.data_type,
             sb_id_padding=file_info.sb_id_padding,
             obs_id_padding=file_info.obs_id_padding,
             chunk_padding=file_info.chunk_padding,
@@ -196,6 +199,7 @@ class MultiFiles(Component):
             timestamp="*",
             sb_id=self._first_file_info.sb_id,
             obs_id=self._first_file_info.obs_id,
+            data_type=self._first_file_info.data_type,
             chunk=chunk,
             sb_id_padding=self._first_file_info.sb_id_padding,
             obs_id_padding=self._first_file_info.obs_id_padding,
@@ -206,7 +210,7 @@ class MultiFiles(Component):
             # in two files with chunk000, the first file technically has the last
             # events of the previous ob, so we sort and take the last entry
             path = sorted(self.directory.glob(pattern))[-1]
-        except StopIteration:
+        except IndexError:
             raise FileNotFoundError(
                 f"No file found for pattern {self.directory}/{pattern}"
             )

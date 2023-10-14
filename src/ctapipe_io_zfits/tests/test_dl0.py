@@ -91,6 +91,7 @@ def test_process_tel_events(dummy_tel_file, tmp_path):
                 f"--output={path}",
                 "--write-images",
                 "--write-parameters",
+                "--MultiFiles.all_chunks=True",
             ],
             raises=True,
         )

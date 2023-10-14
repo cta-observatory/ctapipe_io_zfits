@@ -8,7 +8,6 @@ from ctapipe.core import Component, Provenance
 from ctapipe.core.traits import Bool, CaselessStrEnum
 from protozfits import File
 
-
 __all__ = [
     "MultiFiles",
 ]
@@ -38,15 +37,18 @@ class FileInfo:
 filename_conventions = {
     # Tel001_SDH_3001_20231003T204445_sbid2000000008_obid2000000016_9.fits.fz
     "acada_rel1": {
-        "re": re.compile(r"Tel(?P<tel_id>\d+)_(?P<data_source>SDH_\d+)_(?P<timestamp>\d{8}T\d{6})_sbid(?P<sb_id>\d+)_obid(?P<obs_id>\d+)_(?P<chunk>\d+)\.fits\.fz"),
-        "template": "Tel{tel_id:03d}_{data_source}_{timestamp}_sbid{sb_id:0{sb_id_padding}d}_obid{obs_id:0{obs_id_padding}d}_{chunk:0{chunk_padding}d}.fits.fz",
+        "re": re.compile(
+            r"Tel(?P<tel_id>\d+)_(?P<data_source>SDH_\d+)_(?P<timestamp>\d{8}T\d{6})_sbid(?P<sb_id>\d+)_obid(?P<obs_id>\d+)_(?P<chunk>\d+)\.fits\.fz"  # noqa
+        ),
+        "template": "Tel{tel_id:03d}_{data_source}_{timestamp}_sbid{sb_id:0{sb_id_padding}d}_obid{obs_id:0{obs_id_padding}d}_{chunk:0{chunk_padding}d}.fits.fz",  # noqa
     },
     "acada_dpps_icd": {
         # TEL001_SDH0001_20231013T220427_SBID0000000002000000013_OBSID0000000002000000027_CHUNK000.fits.fz
-        "re": re.compile(r"TEL(?P<tel_id>\d+)_(?P<data_source>SDH\d+)_(?P<timestamp>\d{8}T\d{6})_SBID(?P<sb_id>\d+)_OBSID(?P<obs_id>\d+)_CHUNK(?P<chunk>\d+)\.fits\.fz"),
-        "template": "TEL{tel_id:03d}_{data_source}_{timestamp}_SBID{sb_id:0{sb_id_padding}d}_OBSID{obs_id:0{obs_id_padding}d}_CHUNK{chunk:0{chunk_padding}d}.fits.fz",
-    }
-
+        "re": re.compile(
+            r"TEL(?P<tel_id>\d+)_(?P<data_source>SDH\d+)_(?P<timestamp>\d{8}T\d{6})_SBID(?P<sb_id>\d+)_OBSID(?P<obs_id>\d+)_CHUNK(?P<chunk>\d+)\.fits\.fz"  # noqa
+        ),
+        "template": "TEL{tel_id:03d}_{data_source}_{timestamp}_SBID{sb_id:0{sb_id_padding}d}_OBSID{obs_id:0{obs_id_padding}d}_CHUNK{chunk:0{chunk_padding}d}.fits.fz",  # noqa
+    },
 }
 
 
@@ -56,7 +58,10 @@ def get_file_info(path, convention):
     regex = filename_conventions[convention]["re"]
     m = regex.match(path.name)
     if m is None:
-        raise ValueError(f"Filename {path.name} did not match convention {convention} with regex {regex}")
+        raise ValueError(
+            f"Filename {path.name} did not match convention"
+            f" {convention} with regex {regex}"
+        )
 
     groups = m.groupdict()
     sb_id = int(groups["sb_id"])
@@ -80,7 +85,7 @@ def get_file_info(path, convention):
 
 
 class MultiFiles(Component):
-    """Open multiple stream files and iterate over events in order"""
+    """Open data sources in parallel and iterate over events in order"""
 
     all_source_ids = Bool(
         default_value=True,
@@ -97,17 +102,23 @@ class MultiFiles(Component):
 
     filename_convention = CaselessStrEnum(
         values=list(filename_conventions.keys()),
-        default_value="acada_rel1",
+        default_value="acada_dpps_icd",
     ).tag(config=True)
 
     pure_protobuf = Bool(
         default_value=False,
     ).tag(config=True)
 
-
     def __init__(self, path, *args, **kwargs):
         """
-        Create a new MultiFiles object from a path fullfilling the given filename convention
+        Load multiple data sources in parallel, yielding events in order
+
+        Parameters
+        ----------
+        path : str or pathlib.Path
+            Path to the first chunk for one of the data sources.
+            Path must match the given ``filename_convention``.
+            Data sources of the same sb_id / obs_id will be opened in parallel
         """
         super().__init__(*args, **kwargs)
 
@@ -118,7 +129,9 @@ class MultiFiles(Component):
 
         file_info = get_file_info(path, convention=self.filename_convention)
         self.directory = self.path.parent
-        self.filename_template = filename_conventions[self.filename_convention]["template"]
+        self.filename_template = filename_conventions[self.filename_convention][
+            "template"
+        ]
 
         # figure out how many data sources we have:
         data_source_pattern = self.filename_template.format(
@@ -133,13 +146,20 @@ class MultiFiles(Component):
             chunk_padding=file_info.chunk_padding,
         )
 
-        self.log.debug("Looking for parallel data source using pattern: %s", data_source_pattern)
+        self.log.debug(
+            "Looking for parallel data source using pattern: %s", data_source_pattern
+        )
         paths = sorted(self.directory.glob(data_source_pattern))
         self.log.debug("Found matching paths: %s", paths)
-        self.data_sources = [get_file_info(path, convention=self.filename_convention).data_source for path in paths]
+        self.data_sources = [
+            get_file_info(path, convention=self.filename_convention).data_source
+            for path in paths
+        ]
         self.log.debug("Found the following data sources: %s", self.data_sources)
 
-        self._current_chunk = {data_source: file_info.chunk - 1 for data_source in self.data_sources}
+        self._current_chunk = {
+            data_source: file_info.chunk - 1 for data_source in self.data_sources
+        }
         self._open_files = {}
 
         self._first_file_info = file_info
@@ -184,7 +204,9 @@ class MultiFiles(Component):
         try:
             path = next(self.directory.glob(pattern))
         except StopIteration:
-            raise FileNotFoundError(f"No file found for pattern {self.directory}/{pattern}")
+            raise FileNotFoundError(
+                f"No file found for pattern {self.directory}/{pattern}"
+            )
 
         Provenance().add_input_file(str(path), "DL0")
         self.log.info("Opening file %s", path)

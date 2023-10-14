@@ -23,9 +23,9 @@ def test_multifiles(dummy_dl0, dl0_base):
     assert len(recorded_inputs) == 12
 
 
-
 def test_acada_filename_conventions():
     from ctapipe_io_zfits.multifile import filename_conventions, get_file_info
+
     name = "Tel001_SDH_3001_20231003T204445_sbid2000000008_obid2000000016_9.fits.fz"
 
     acada = filename_conventions["acada_rel1"]

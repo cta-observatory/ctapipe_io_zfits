@@ -76,7 +76,14 @@ def _is_compatible(input_url, extname, allowed_protos):
     return True
 
 
-def _fill_dl0_container(tel_event, data_stream, camera_config, camera_geometry, ignore_samples_start=0, ignore_samples_end=0):
+def _fill_dl0_container(
+    tel_event,
+    data_stream,
+    camera_config,
+    camera_geometry,
+    ignore_samples_start=0,
+    ignore_samples_end=0,
+):
     n_channels = tel_event.num_channels
     n_pixels_stored = tel_event.num_pixels_survived
     n_samples = tel_event.num_samples
@@ -89,7 +96,9 @@ def _fill_dl0_container(tel_event, data_stream, camera_config, camera_geometry, 
 
     pixel_status = tel_event.pixel_status
     # FIXME: seems ACADA doesn't set pixels to "stored" when no DVR is applied
-    if n_pixels_stored == camera_config.num_pixels and np.all(PixelStatus.get_dvr_status(pixel_status) == 0):
+    if n_pixels_stored == camera_config.num_pixels and np.all(
+        PixelStatus.get_dvr_status(pixel_status) == 0
+    ):
         pixel_status = pixel_status | PixelStatus.DVR_STORED_AS_SIGNAL
 
     pixel_stored = PixelStatus.get_dvr_status(pixel_status) != 0
@@ -111,7 +120,6 @@ def _fill_dl0_container(tel_event, data_stream, camera_config, camera_geometry, 
     # reorder to nominal pixel order
     pixel_status = np.zeros(n_pixels_nominal, dtype=tel_event.pixel_status.dtype)
     pixel_status[camera_config.pixel_id_map] = pixel_status
-
 
     channel_info = PixelStatus.get_channel_info(pixel_status)
     if n_channels == 1:
@@ -290,6 +298,7 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
 
     The ``input_url`` is one of the telescope events files.
     """
+
     subarray_id = Integer(default_value=1).tag(config=True)
     ignore_samples_start = Integer(default_value=0).tag(config=True)
     ignore_samples_end = Integer(default_value=0).tag(config=True)

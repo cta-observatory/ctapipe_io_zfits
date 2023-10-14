@@ -153,11 +153,11 @@ class MultiFiles(Component):
             "Looking for parallel data source using pattern: %s", data_source_pattern
         )
         paths = sorted(self.directory.glob(data_source_pattern))
-        self.log.debug("Found matching paths: %s", paths)
-        self.data_sources = [
+        self.log.debug("Found %d matching paths: %s", len(paths), paths)
+        self.data_sources = {
             get_file_info(path, convention=self.filename_convention).data_source
             for path in paths
-        ]
+        }
         self.log.debug("Found the following data sources: %s", self.data_sources)
 
         self._current_chunk = {

@@ -202,7 +202,10 @@ class MultiFiles(Component):
             chunk_padding=self._first_file_info.chunk_padding,
         )
         try:
-            path = next(self.directory.glob(pattern))
+            # currently there is a timing issue between acada / EVB resulting
+            # in two files with chunk000, the first file technically has the last
+            # events of the previous ob, so we sort and take the last entry
+            path = sorted(self.directory.glob(pattern))[-1]
         except StopIteration:
             raise FileNotFoundError(
                 f"No file found for pattern {self.directory}/{pattern}"

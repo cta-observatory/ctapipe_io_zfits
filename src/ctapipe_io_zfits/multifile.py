@@ -107,12 +107,7 @@ class MultiFiles(Component):
 
     def __init__(self, path, *args, **kwargs):
         """
-        Create a new MultiFiles object from an iterable of paths
-
-        Parameters
-        ----------
-        paths: Iterable[string|Path]
-            The input paths
+        Create a new MultiFiles object from a path fullfilling the given filename convention
         """
         super().__init__(*args, **kwargs)
 

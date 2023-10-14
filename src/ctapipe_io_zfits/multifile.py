@@ -79,7 +79,7 @@ def get_file_info(path, convention):
         sb_id=sb_id,
         obs_id=obs_id,
         chunk=chunk,
-        data_type=groups.get("data_type", ""),
+        data_type=groups.get("data_type") or "",
         sb_id_padding=sb_id_padding,
         obs_id_padding=obs_id_padding,
         chunk_padding=chunk_padding,

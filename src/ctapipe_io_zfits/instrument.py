@@ -4,6 +4,7 @@ from importlib.resources import as_file, files
 from typing import Tuple
 
 import astropy.units as u
+from astropy.coordinates import EarthLocation
 from ctapipe.coordinates import CameraFrame
 from ctapipe.core import Provenance
 from ctapipe.instrument import (
@@ -117,6 +118,10 @@ def build_subarray_description(subarray_id):
         name=subarray["name"],
         tel_descriptions=telescopes,
         # FIXME: fill actual telescope positions
-        tel_positions={tel_id: [0, 0, 0] * u.m for tel_id in telescopes}
-        # FIXME: fill reference location
+        tel_positions={tel_id: [0, 0, 0] * u.m for tel_id in telescopes},
+        # FIXME: fill actual reference location
+        # height is currently the height of LST Prod2 obs level
+        reference_location=EarthLocation(
+            lon=0 * u.deg, lat=0 * u.deg, height=2199 * u.m
+        ),
     )

@@ -1,2 +1,3 @@
 prune src/ctapipe_io_zfits/_dev_version
 prune .github
+include src/ctapipe_io_zfits/resources/*

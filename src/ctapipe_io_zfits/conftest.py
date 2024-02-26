@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 from astropy.time import Time
 from ctapipe.containers import EventType
-from protozfits import CTA_DL0_Subarray_pb2 as DL0_Subarray
-from protozfits import CTA_DL0_Telescope_pb2 as DL0_Telescope
+from protozfits import DL0v1_Subarray_pb2 as DL0_Subarray
+from protozfits import DL0v1_Telescope_pb2 as DL0_Telescope
 from protozfits import ProtobufZOFits
 from protozfits.CoreMessages_pb2 import AnyArray
 
@@ -35,11 +35,16 @@ timezone_cta_n = ZoneInfo("Atlantic/Canary")
 
 
 def to_anyarray(array):
+    """Convert numpy to protobuf AnyArray."""
     type_ = DTYPE_TO_ANYARRAY_TYPE[array.dtype.type]
     return AnyArray(type=type_, data=array.tobytes())
 
 
 def evening_of_obs(time, tz):
+    """Get the evening an observation started.
+
+    Uses noon localtime in ``tz`` as a cutoff.
+    """
     dt = time.to_datetime(timezone.utc).astimezone(tz)
     if dt.hour < 12:
         return (dt - timedelta(days=1)).date()
@@ -49,6 +54,7 @@ def evening_of_obs(time, tz):
 
 @pytest.fixture(scope="session")
 def acada_base(tmp_path_factory):
+    """Base directory of acada data."""
     return tmp_path_factory.mktemp("acada_base_")
 
 
@@ -120,7 +126,7 @@ def dummy_dl0(dl0_base):
         num_samples_nominal=40,
         num_samples_long=0,
         num_modules=265,
-        sampling_frequncy=1024,
+        sampling_frequency=1024,
     )
 
     time = obs_start

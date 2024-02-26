@@ -1,7 +1,7 @@
+"""Definitionas of the instrument configuration."""
 import json
 from functools import cache
 from importlib.resources import as_file, files
-from typing import Tuple
 
 import astropy.units as u
 from astropy.coordinates import EarthLocation
@@ -57,21 +57,21 @@ def _load_array_elements():
 
 @cache
 def get_subarrays_by_id():
-    """Get a mapping of subarray_id to subarray definition"""
+    """Get a mapping of subarray_id to subarray definition."""
     data = _load_subarrays()
     return {subarray["id"]: subarray for subarray in data["subarrays"]}
 
 
 @cache
 def get_array_elements_by_id():
-    """Get a mapping of ae_id to array element definition"""
+    """Get a mapping of ae_id to array element definition."""
     data = _load_array_elements()
     return {ae["id"]: ae for ae in data["array_elements"]}
 
 
 @cache
-def get_array_element_ids(subarray_id: int) -> Tuple[int]:
-    """Get array element ids for a given subarray_id"""
+def get_array_element_ids(subarray_id: int) -> tuple[int]:
+    """Get array element ids for a given subarray_id."""
     subarray = get_subarrays_by_id().get(subarray_id)
     if subarray_id is None:
         raise ValueError(f"Unknown subarray_id: {subarray_id}")
@@ -80,10 +80,11 @@ def get_array_element_ids(subarray_id: int) -> Tuple[int]:
 
 
 def build_subarray_description(subarray_id):
+    """Create a SubarrayDescription from the subarray_id."""
     try:
         subarray = get_subarrays_by_id()[subarray_id]
     except KeyError:
-        raise ValueError(f"Unknown subarray_id: {subarray_id}")
+        raise ValueError(f"Unknown subarray_id: {subarray_id}") from None
 
     tel_ids = get_array_element_ids(subarray_id)
     array_elements = get_array_elements_by_id()

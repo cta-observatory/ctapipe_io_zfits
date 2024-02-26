@@ -1,24 +1,26 @@
+"""Functions for dealing with path names."""
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
-from typing import Optional, Union
 
 
 @dataclass
 class FileNameInfo:
+    """Components of a filename."""
+
     data_source_id: str
-    ae_type: Optional[str] = None
-    ae_id: Optional[int] = None
-    subarray_id: Optional[int] = None
-    sb_id: Optional[int] = None
-    obs_id: Optional[int] = None
-    type_: Optional[str] = None
-    subtype: Optional[str] = None
-    chunk_id: Optional[int] = None
-    file_id: Optional[int] = None
-    suffix: Optional[str] = None
-    timestamp: Union[datetime, date, None] = None
+    ae_type: str | None = None
+    ae_id: int | None = None
+    subarray_id: int | None = None
+    sb_id: int | None = None
+    obs_id: int | None = None
+    type_: str | None = None
+    subtype: str | None = None
+    chunk_id: int | None = None
+    file_id: int | None = None
+    suffix: str | None = None
+    timestamp: datetime | date | None = None
 
 
 #: regex to match filenames according to the ACADA DPPS ICD naming pattern
@@ -38,6 +40,7 @@ FILENAME_RE = re.compile(
 
 
 def parse_filename(path):
+    """Extract components from a path."""
     name = Path(path).name
 
     match = FILENAME_RE.match(name)

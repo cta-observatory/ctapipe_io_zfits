@@ -1,9 +1,6 @@
-"""
-DL0 Protozfits EventSource
-"""
+"""DL0 Protozfits EventSource."""
 import logging
 from contextlib import ExitStack
-from typing import Dict, Tuple
 
 import numpy as np
 from ctapipe.containers import (
@@ -47,7 +44,7 @@ def _is_compatible(input_url, extname, allowed_protos):
         try:
             hdul = stack.enter_context(fits.open(input_url))
         except Exception as e:
-            log.debug(f"Error trying to open input file as fits: {e}")
+            log.debug("Error trying to open input file as fits: %s", e)
             return False
 
         if extname not in hdul:
@@ -70,7 +67,7 @@ def _is_compatible(input_url, extname, allowed_protos):
         return False
 
     if proto_class not in allowed_protos:
-        log.debug(f"Unsupported PBFHEAD: {proto_class} not in {allowed_protos}")
+        log.debug("Unsupported PBFHEAD: %s not in %s", proto_class, allowed_protos)
         return False
 
     return True
@@ -150,7 +147,7 @@ class ProtozfitsDL0EventSource(EventSource):
 
     The ``input_url`` must be the subarray trigger file, the source
     will then look for the other data files according to the filename and
-    directory schema layed out in the draft of the ACADA - DPPS ICD.
+    directory schema laid out in the draft of the ACADA - DPPS ICD.
     """
 
     subarray_id = Integer(default_value=1).tag(config=True)
@@ -203,10 +200,11 @@ class ProtozfitsDL0EventSource(EventSource):
             / self._date_dirs
         )
 
-    @classmethod
-    def is_compatible(cls, input_url):
+    @staticmethod
+    def is_compatible(file_path):
+        """Return True if the given file can be read by this source."""
         return _is_compatible(
-            input_url,
+            file_path,
             extname="SubarrayEvents",
             allowed_protos={"DL0v1.Subarray.Event"},
         )
@@ -230,29 +228,30 @@ class ProtozfitsDL0EventSource(EventSource):
             )
 
     def close(self):
+        """Close underlying files."""
         self._exit_stack.__exit__(None, None, None)
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback):  # noqa: D105
         self._exit_stack.__exit__(exc_type, exc_value, traceback)
 
     @property
-    def is_simulation(self) -> bool:
+    def is_simulation(self) -> bool:  # noqa: D102
         return False
 
     @property
-    def datalevels(self) -> Tuple[DataLevel]:
+    def datalevels(self) -> tuple[DataLevel]:  # noqa: D102
         return (DataLevel.DL0,)
 
     @property
-    def subarray(self) -> SubarrayDescription:
+    def subarray(self) -> SubarrayDescription:  # noqa: D102
         return self._subarray
 
     @property
-    def observation_blocks(self) -> Dict[int, ObservationBlockContainer]:
+    def observation_blocks(self) -> dict[int, ObservationBlockContainer]:  # noqa: D102
         return self._observation_blocks
 
     @property
-    def scheduling_blocks(self) -> Dict[int, SchedulingBlockContainer]:
+    def scheduling_blocks(self) -> dict[int, SchedulingBlockContainer]:  # noqa: D102
         return self._scheduling_blocks
 
     def _generator(self):
@@ -304,7 +303,7 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
     ignore_samples_end = Integer(default_value=0).tag(config=True)
 
     @classmethod
-    def is_compatible(cls, input_url):
+    def is_compatible(cls, input_url):  # noqa: D102
         return _is_compatible(
             input_url,
             extname="Events",
@@ -338,35 +337,30 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
             self.sb_id: SchedulingBlockContainer(sb_id=np.uint64(self.sb_id))
         }
 
-    def close(self):
+    def close(self):  # noqa: D102
         self._exit_stack.__exit__(None, None, None)
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback):  # noqa: D105
         self._exit_stack.__exit__(exc_type, exc_value, traceback)
 
     @property
-    def is_simulation(self) -> bool:
-        """If data comes from simulations"""
+    def is_simulation(self) -> bool:  # noqa: D102
         return False
 
     @property
-    def datalevels(self) -> Tuple[DataLevel]:
-        """Provided data levels"""
+    def datalevels(self) -> tuple[DataLevel]:  # noqa: D102
         return (DataLevel.DL0,)
 
     @property
-    def subarray(self) -> SubarrayDescription:
-        """The subarray"""
+    def subarray(self) -> SubarrayDescription:  # noqa: D102
         return self._subarray
 
     @property
-    def observation_blocks(self) -> Dict[int, ObservationBlockContainer]:
-        """The observation blocks"""
+    def observation_blocks(self) -> dict[int, ObservationBlockContainer]:  # noqa: D102
         return self._observation_blocks
 
     @property
-    def scheduling_blocks(self) -> Dict[int, SchedulingBlockContainer]:
-        """The scheduling blocks"""
+    def scheduling_blocks(self) -> dict[int, SchedulingBlockContainer]:  # noqa: D102
         return self._scheduling_blocks
 
     def _fill_event(self, count, zfits_event) -> ArrayEventContainer:

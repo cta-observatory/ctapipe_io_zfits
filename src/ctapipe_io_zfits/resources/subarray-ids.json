@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "CTA DATA MODEL NAME": "ctao.common.identifiers.subarrays",
+    "CTA DATA MODEL URL": "https://gitlab.cta-observatory.org/cta-computing/common",
+    "CTA DATA MODEL VERSION": 2,
+    "CTA DATA PRODUCT DESCRIPTION": "This file contains a mapping of subarray ID number to human-readable name and the array elements it contains. The ids define the grouping of array elements –normally telescopes– operating together during an obserrvation block" ,
+    "CTA PRODUCT ID": "e809f394-7be0-46a3-aefe-d0733942c46a",
+    "array_elements": "350917c3-fb77-453d-b1bc-296471f5e7fb"
+  },
+
+  "subarrays": [
+    {
+      "id": 1,
+      "name": "LST1",
+      "array_element_ids": [1]
+    },
+    {
+      "id": 2,
+      "name": "CTAO-N LSTs",
+      "array_element_ids": [1, 2, 3, 4]
+    },
+    {
+      "id": 3,
+      "name": "CTAO-N MSTs 1st batch",
+      "array_element_ids": [5, 6, 7, 8, 9]
+    }
+  ]
+}

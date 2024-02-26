@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 from astropy.time import Time
 from ctapipe.containers import EventType
-from protozfits import CTA_DL0_Subarray_pb2 as DL0_Subarray
-from protozfits import CTA_DL0_Telescope_pb2 as DL0_Telescope
+from protozfits import DL0v1_Subarray_pb2 as DL0_Subarray
+from protozfits import DL0v1_Telescope_pb2 as DL0_Telescope
 from protozfits import ProtobufZOFits
 from protozfits.CoreMessages_pb2 import AnyArray
 
@@ -120,7 +120,7 @@ def dummy_dl0(dl0_base):
         num_samples_nominal=40,
         num_samples_long=0,
         num_modules=265,
-        sampling_frequncy=1024,
+        sampling_frequency=1024,
     )
 
     time = obs_start

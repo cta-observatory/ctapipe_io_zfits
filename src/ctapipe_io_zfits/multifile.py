@@ -1,3 +1,4 @@
+"""Load multiple stream files in parallel and iterate over events in order."""
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -15,7 +16,7 @@ __all__ = [
 
 @dataclass(order=True)
 class NextEvent:
-    """Class to get sorted access to events from multiple files"""
+    """Class to get sorted access to events from multiple files."""
 
     priority: int
     event: Any = field(compare=False)
@@ -87,7 +88,7 @@ def get_file_info(path, convention):
 
 
 class MultiFiles(Component):
-    """Open data sources in parallel and iterate over events in order"""
+    """Open data sources in parallel and iterate over events in order."""
 
     all_source_ids = Bool(
         default_value=True,
@@ -113,7 +114,7 @@ class MultiFiles(Component):
 
     def __init__(self, path, *args, **kwargs):
         """
-        Load multiple data sources in parallel, yielding events in order
+        Load multiple data sources in parallel, yielding events in order.
 
         Parameters
         ----------
@@ -127,7 +128,7 @@ class MultiFiles(Component):
         self.path = Path(path)
 
         if not self.path.is_file():
-            raise IOError(f"input path {path} is not a file")
+            raise OSError(f"input path {path} is not a file")
 
         file_info = get_file_info(path, convention=self.filename_convention)
         self.directory = self.path.parent
@@ -177,6 +178,7 @@ class MultiFiles(Component):
 
     @property
     def n_open_files(self):
+        """Number of currently open files."""
         return len(self._open_files)
 
     def _load_next_chunk(self, data_source):
@@ -213,7 +215,7 @@ class MultiFiles(Component):
         except IndexError:
             raise FileNotFoundError(
                 f"No file found for pattern {self.directory}/{pattern}"
-            )
+            ) from None
 
         Provenance().add_input_file(str(path), "DL0")
         self.log.info("Opening file %s", path)
@@ -235,20 +237,20 @@ class MultiFiles(Component):
             self.camera_config = file_.CameraConfiguration[0]
 
     def close(self):
-        """Close the underlying files"""
+        """Close the underlying files."""
         for f in self._open_files.values():
             f.close()
 
-    def __enter__(self):
+    def __enter__(self):  # noqa: D105
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback):  # noqa: D105
         self.close()
 
-    def __iter__(self):
+    def __iter__(self):  # noqa: D105
         return self
 
-    def __next__(self):
+    def __next__(self):  # noqa: D105
         # check for the minimal event id
         if not self._events:
             raise StopIteration
@@ -256,7 +258,7 @@ class MultiFiles(Component):
         try:
             next_event = self._events.get_nowait()
         except Empty:
-            raise StopIteration
+            raise StopIteration from None
 
         data_source = next_event.data_source
         event = next_event.event

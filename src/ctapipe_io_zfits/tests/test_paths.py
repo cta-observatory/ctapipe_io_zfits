@@ -523,6 +523,6 @@ icd_examples = [
 ]
 
 
-@pytest.mark.parametrize("filename,expected", icd_examples)
+@pytest.mark.parametrize(("filename", "expected"), icd_examples)
 def test_parse_filename(filename, expected):
     assert parse_filename(filename) == expected

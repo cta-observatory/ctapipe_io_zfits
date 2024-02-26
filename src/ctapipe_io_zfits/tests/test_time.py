@@ -30,7 +30,7 @@ test_data = [
 ]
 
 
-@pytest.mark.parametrize("time,expected_s,expected_qns", test_data)
+@pytest.mark.parametrize(("time", "expected_s", "expected_qns"), test_data)
 def test_cta_time_to_cta_high_res(time, expected_s, expected_qns):
     from ctapipe_io_zfits.time import time_to_cta_high_res
 

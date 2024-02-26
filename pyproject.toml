@@ -60,3 +60,67 @@ ctapipe_io_zfits = ["resources/*"]
 
 [tool.setuptools_scm]
 write_to = 'src/ctapipe_io_zfits/_version.py'
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+
+[tool.ruff.lint]
+extend-select = [
+    "I", # isort
+    "N", # pep8 naming
+    "D", # pydocstyle
+    "NPY", # numpy
+    "PT", # pytest
+    "UP", # pyupgrade
+    "COM", # flake8-commas
+    "ISC", # implicit string concat rules
+    "ICN", # import name conventions
+    "G", # logging
+    "B", # flake8-bugbear
+]
+ignore = [
+    "COM812", # incompatible with ruff format
+    "ISC001", # incompatible with ruff format
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+# no documentation linting for test files
+"**/tests/**" = ["D"]
+"**/tests_*.py" = ["D"]
+"docs/conf.py" = ["D"]
+"**/conftest.py" = ["D"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+
+[tool.repo-review]
+select = ["PY", "PP", "PC"]
+ignore = [
+    "PY007", # we do not use tox for now
+    "PC140", # mypy is not used
+    "PC170", # pygrep is not used
+    "PC180", # prettier is not used
+    "PC111", # blacken-docs is not used
+    "PC901", # no CI setup currently for updating pre-commit hooks
+]
+
+
+[tool.pytest.ini_options]
+minversion = "7"
+testpaths = ["src"]
+log_cli_level = "INFO"
+xfail_strict = true
+# print summary of failed tests, force errors if settings are misspelled
+addopts = ["-ra", "--strict-config", "--strict-markers"]
+filterwarnings = [
+    "error",
+]

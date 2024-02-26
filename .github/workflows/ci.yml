@@ -99,7 +99,7 @@ jobs:
           python -c 'import ctapipe_io_zfits ; print(ctapipe_io_zfits.__version__)'
 
       - name: Build docs
-        run: make -C docs html SPHINXOPTS="-W --keep-going --color -j auto"
+        run: make -C docs html SPHINXOPTS="-W --keep-going --color"
 
       - name: Deploy to github pages
         # only run on push to master

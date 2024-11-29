@@ -1,6 +1,5 @@
 import astropy.units as u
 import numpy as np
-import pytest
 from astropy.time import Time
 from ctapipe.core.tool import run_tool
 from ctapipe.instrument import SubarrayDescription
@@ -53,18 +52,17 @@ def test_subarray_events(dummy_dl0):
 def test_process(dummy_dl0, tmp_path):
     path = tmp_path / "dummy.dl1.h5"
 
-    with pytest.warns(UserWarning, match="Encountered an event with no R1 data"):
-        run_tool(
-            ProcessorTool(),
-            [
-                f"--input={dummy_dl0}",
-                f"--output={path}",
-                "--write-images",
-                "--write-parameters",
-                "--EventTypeFilter.allowed_types=SUBARRAY",
-            ],
-            raises=True,
-        )
+    run_tool(
+        ProcessorTool(),
+        [
+            f"--input={dummy_dl0}",
+            f"--output={path}",
+            "--write-images",
+            "--write-parameters",
+            "--EventTypeFilter.allowed_types=SUBARRAY",
+        ],
+        raises=True,
+    )
 
 
 def test_telescope_event_source(dummy_tel_file):
@@ -83,18 +81,17 @@ def test_telescope_event_source(dummy_tel_file):
 def test_process_tel_events(dummy_tel_file, tmp_path):
     path = tmp_path / "dummy.dl1.h5"
 
-    with pytest.warns(UserWarning, match="Encountered an event with no R1 data"):
-        run_tool(
-            ProcessorTool(),
-            [
-                f"--input={dummy_tel_file}",
-                f"--output={path}",
-                "--write-images",
-                "--write-parameters",
-                "--MultiFiles.all_chunks=True",
-            ],
-            raises=True,
-        )
+    run_tool(
+        ProcessorTool(),
+        [
+            f"--input={dummy_tel_file}",
+            f"--output={path}",
+            "--write-images",
+            "--write-parameters",
+            "--MultiFiles.all_chunks=True",
+        ],
+        raises=True,
+    )
 
     with TableLoader(path) as loader:
         events = loader.read_telescope_events()

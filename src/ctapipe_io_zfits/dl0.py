@@ -102,12 +102,8 @@ def _fill_dl0_container(
     n_pixels_nominal = camera_geometry.n_pixels
 
     # fill not readout pixels with 0, reorder pixels, use 2d array when gain reduced
-    if n_channels == 2:
-        waveform = np.zeros((n_channels, n_pixels_nominal, n_samples), dtype=np.float32)
-        waveform[:, camera_config.pixel_id_map[pixel_stored]] = zfits_waveform
-    else:
-        waveform = np.zeros((n_pixels_nominal, n_samples), dtype=np.float32)
-        waveform[camera_config.pixel_id_map[pixel_stored]] = zfits_waveform[0]
+    waveform = np.zeros((n_channels, n_pixels_nominal, n_samples), dtype=np.float32)
+    waveform[:, camera_config.pixel_id_map[pixel_stored]] = zfits_waveform
 
     if ignore_samples_start != 0 or ignore_samples_end != 0:
         start = ignore_samples_start

@@ -1,4 +1,5 @@
 """DL0 Protozfits EventSource."""
+
 import logging
 from contextlib import ExitStack
 
@@ -111,10 +112,12 @@ def _fill_dl0_container(
         waveform = waveform[..., start:end]
 
     # reorder to nominal pixel order
-    pixel_status = np.zeros(n_pixels_nominal, dtype=tel_event.pixel_status.dtype)
-    pixel_status[camera_config.pixel_id_map] = pixel_status
+    pixel_status_reordered = np.zeros(
+        n_pixels_nominal, dtype=tel_event.pixel_status.dtype
+    )
+    pixel_status_reordered[camera_config.pixel_id_map] = pixel_status
 
-    channel_info = PixelStatus.get_channel_info(pixel_status)
+    channel_info = PixelStatus.get_channel_info(pixel_status_reordered)
     if n_channels == 1:
         selected_gain_channel = np.where(
             channel_info == PixelStatus.HIGH_GAIN_STORED,
@@ -125,7 +128,7 @@ def _fill_dl0_container(
         selected_gain_channel = None
 
     return DL0CameraContainer(
-        pixel_status=tel_event.pixel_status,
+        pixel_status=pixel_status_reordered,
         event_type=EventType(tel_event.event_type),
         selected_gain_channel=selected_gain_channel,
         event_time=cta_high_res_to_time(
@@ -188,9 +191,10 @@ class ProtozfitsDL0EventSource(EventSource):
         self._open_telescope_files()
 
     def _get_tel_events_directory(self, tel_id):
+        tel_name = ARRAY_ELEMENTS[tel_id]["name"]
         return (
             self._dl0_base
-            / f"TEL{tel_id:03d}"
+            / tel_name
             / self._acada_user
             / "acada-adh/events"
             / self._date_dirs

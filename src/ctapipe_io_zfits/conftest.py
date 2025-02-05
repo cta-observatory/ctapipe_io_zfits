@@ -1,3 +1,4 @@
+import datetime
 from contextlib import ExitStack
 from datetime import timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -10,37 +11,15 @@ from ctapipe.containers import EventType
 from protozfits import DL0v1_Subarray_pb2 as DL0_Subarray
 from protozfits import DL0v1_Telescope_pb2 as DL0_Telescope
 from protozfits import ProtobufZOFits
-from protozfits.CoreMessages_pb2 import AnyArray
+from protozfits.any_array_to_numpy import numpy_to_any_array
 
 from ctapipe_io_zfits.time import time_to_cta_high_res
 
-ANY_ARRAY_TYPE_TO_NUMPY_TYPE = {
-    AnyArray.S8: np.int8,
-    AnyArray.U8: np.uint8,
-    AnyArray.S16: np.int16,
-    AnyArray.U16: np.uint16,
-    AnyArray.S32: np.int32,
-    AnyArray.U32: np.uint32,
-    AnyArray.S64: np.int64,
-    AnyArray.U64: np.uint64,
-    AnyArray.FLOAT: np.float32,
-    AnyArray.DOUBLE: np.float64,
-}
-
-DTYPE_TO_ANYARRAY_TYPE = {v: k for k, v in ANY_ARRAY_TYPE_TO_NUMPY_TYPE.items()}
-
 acada_user = "ctao-acada-n"
-obs_start = Time("2023-08-02T02:15:31")
 timezone_cta_n = ZoneInfo("Atlantic/Canary")
 
 
-def to_anyarray(array):
-    """Convert numpy to protobuf AnyArray."""
-    type_ = DTYPE_TO_ANYARRAY_TYPE[array.dtype.type]
-    return AnyArray(type=type_, data=array.tobytes())
-
-
-def evening_of_obs(time, tz):
+def evening_of_obs(time: Time, tz: ZoneInfo) -> datetime.date:
     """Get the evening an observation started.
 
     Uses noon localtime in ``tz`` as a cutoff.
@@ -67,44 +46,73 @@ def dl0_base(acada_base):
     dl0 = acada_base / "DL0"
     dl0.mkdir(exist_ok=True)
 
-    lst_base = dl0 / "TEL001" / acada_user / "acada-adh"
+    lst_base = dl0 / "LSTN-01" / acada_user / "acada-adh"
     lst_events = lst_base / "events"
     lst_monitoring = lst_base / "monitoring"
     array_triggers = dl0 / "array" / acada_user / "acada-adh" / "triggers"
     array_monitoring = dl0 / "array" / acada_user / "acada-adh" / "monitoring"
 
-    evening = evening_of_obs(obs_start, timezone_cta_n)
-
     for directory in (lst_events, lst_monitoring, array_triggers, array_monitoring):
-        date_path = directory / f"{evening:%Y/%m/%d}"
-        date_path.mkdir(exist_ok=True, parents=True)
+        directory.mkdir(exist_ok=True, parents=True)
 
     return dl0
 
 
-@pytest.fixture(scope="session")
-def dummy_dl0(dl0_base):
-    trigger_dir = dl0_base / "array" / acada_user / "acada-adh/triggers/2023/08/01/"
-    lst_event_dir = dl0_base / "TEL001" / acada_user / "acada-adh/events/2023/08/01/"
+# we parametrize the dummy dl0 for a couple of different scenarios.
+# Tests using this fixture will be run under all scenarios automatically
+@pytest.fixture(
+    scope="session",
+    params=[
+        {
+            "missing_modules": True,
+            "obs_start": Time("2023-08-02T02:15:31"),
+            "sb_creator_id": 2,
+            "sb_id": 123,
+            "obs_id": 456,
+        },
+        {
+            "missing_modules": False,
+            "obs_start": Time("2025-02-04T20:45:31"),
+            "sb_creator_id": 2,
+            "sb_id": 124,
+            "obs_id": 789,
+        },
+    ],
+)
+def dummy_dl0(dl0_base, request):
+    rng = np.random.default_rng(0)
+
+    config = request.param
+    sb_id = config["sb_id"]
+    obs_id = config["obs_id"]
+    sb_creator_id = config["sb_creator_id"]
+
+    obs_start = config["obs_start"]
+    date = evening_of_obs(obs_start, timezone_cta_n)
+
+    date_path = f"{date.year}/{date.month:02d}/{date.day:02d}"
+    trigger_dir = dl0_base / "ARRAY" / acada_user / "acada-adh/triggers" / date_path
+    lst_event_dir = dl0_base / "LSTN-01" / acada_user / "acada-adh/events" / date_path
+    for directory in (trigger_dir, lst_event_dir):
+        directory.mkdir(exist_ok=True, parents=True)
+
     subarray_id = 1
-    sb_id = 123
-    obs_id = 456
-    sb_creator_id = 1
-    sdh_ids = (1, 2, 3, 4)
+    sdh_ids = (0, 1, 2, 3)
 
     obs_start_path_string = f"{obs_start.to_datetime(timezone.utc):%Y%m%dT%H%M%S}"
     filename = f"SUB{subarray_id:03d}_SWAT001_{obs_start_path_string}_SBID{sb_id:019d}_OBSID{obs_id:019d}_SUBARRAY_CHUNK000.fits.fz"  # noqa
+
     # sdh_id and chunk_id will be filled later -> double {{}}
     lst_event_pattern = f"TEL001_SDH{{sdh_id:03d}}_{obs_start_path_string}_SBID{sb_id:019d}_OBSID{obs_id:019d}_TEL_SHOWER_CHUNK{{chunk_id:03d}}.fits.fz"  # noqa
     trigger_path = trigger_dir / filename
 
-    # subarray_data_stream = DL0_Subarray.DataStream(
-    #     subarray_id=subarray_id,
-    #     sb_id=sb_id,
-    #     obs_id=obs_id,
-    #     producer_id=1  # FIXME: what is correct here?,
-    #     sb_creator_id=sb_creator_id,
-    # )
+    subarray_data_stream = DL0_Subarray.DataStream(
+        subarray_id=subarray_id,
+        sb_id=sb_id,
+        obs_id=obs_id,
+        producer_id=1,  # FIXME: what is correct here?,
+        sb_creator_id=sb_creator_id,
+    )
 
     lst_data_stream = DL0_Telescope.DataStream(
         tel_id=1,
@@ -114,18 +122,30 @@ def dummy_dl0(dl0_base):
         waveform_offset=5.0,
         sb_creator_id=sb_creator_id,
     )
+
+    n_modules = 265
+    n_pixels_module = 7
+    module_id_map = np.arange(n_modules)
+    if config["missing_modules"]:
+        module_id_map = np.delete(module_id_map, [50, 200])
+        n_modules = len(module_id_map)
+
+    module_ids = np.repeat(module_id_map, n_pixels_module)
+    pixel_id_map = module_ids + np.tile(np.arange(n_pixels_module), n_modules)
+    n_pixels = len(pixel_id_map)
+
     camera_configuration = DL0_Telescope.CameraConfiguration(
         tel_id=1,
         local_run_id=789,
         config_time_s=obs_start.unix,
         camera_config_id=47,
-        pixel_id_map=to_anyarray(np.arange(1855)),
-        module_id_map=to_anyarray(np.arange(265)),
-        num_pixels=1855,
+        num_pixels=n_pixels,
+        pixel_id_map=numpy_to_any_array(pixel_id_map),
+        module_id_map=numpy_to_any_array(module_id_map),
         num_channels=2,
         num_samples_nominal=40,
         num_samples_long=0,
-        num_modules=265,
+        num_modules=n_modules,
         sampling_frequency=1024,
     )
 
@@ -168,8 +188,8 @@ def dummy_dl0(dl0_base):
     with ctx:
         trigger_file = ctx.enter_context(ProtobufZOFits(**proto_kwargs))
         trigger_file.open(str(trigger_path))
-        # trigger_file.move_to_new_table("DataStream")
-        # trigger_file.write_message(subarray_data_stream)
+        trigger_file.move_to_new_table("DataStream")
+        trigger_file.write_message(subarray_data_stream)
         trigger_file.move_to_new_table("SubarrayEvents")
 
         for sdh_id in sdh_ids:
@@ -187,8 +207,8 @@ def dummy_dl0(dl0_base):
                     obs_id=obs_id,
                     event_time_s=int(time_s),
                     event_time_qns=int(time_qns),
-                    trigger_ids=to_anyarray(np.array([event_id])),
-                    tel_ids=to_anyarray(np.array([1])),
+                    trigger_ids=numpy_to_any_array(np.array([event_id])),
+                    tel_ids=numpy_to_any_array(np.array([1])),
                 )
             )
 
@@ -196,7 +216,7 @@ def dummy_dl0(dl0_base):
             # TODO: randomize event to test actually parsing it
 
             # TODO: fill actual signal into waveform, not just 0
-            waveform = np.zeros((1, 1855, 40), dtype=np.float32)
+            waveform = rng.normal(0.0, 1.0, size=(1, n_pixels, 40)).astype(np.float32)
 
             lst_event_files[sdh_id].write_message(
                 DL0_Telescope.Event(
@@ -206,11 +226,13 @@ def dummy_dl0(dl0_base):
                     event_time_s=int(time_s),
                     event_time_qns=int(time_qns),
                     # identified as signal, low gain stored, high gain stored
-                    pixel_status=to_anyarray(np.full(1855, 0b00001101, dtype=np.uint8)),
-                    waveform=to_anyarray(convert_waveform(waveform)),
+                    pixel_status=numpy_to_any_array(
+                        np.full(n_pixels, 0b00001101, dtype=np.uint8)
+                    ),
+                    waveform=numpy_to_any_array(convert_waveform(waveform)),
                     num_channels=1,
                     num_samples=40,
-                    num_pixels_survived=1855,
+                    num_pixels_survived=n_pixels,
                 )
             )
             events_written[sdh_id] += 1
@@ -219,10 +241,13 @@ def dummy_dl0(dl0_base):
 
             time = time + 0.001 * u.s
 
-    return trigger_path
+    config["trigger_path"] = trigger_path
+    config["first_tel_path"] = lst_event_dir / lst_event_pattern.format(
+        sdh_id=0, chunk_id=0
+    )
+    return config
 
 
 @pytest.fixture(scope="session")
-def dummy_tel_file(dummy_dl0, dl0_base):
-    name = "TEL001_SDH001_20230802T021531_SBID0000000000000000123_OBSID0000000000000000456_TEL_SHOWER_CHUNK000.fits.fz"  # noqa
-    return dl0_base / "TEL001/ctao-acada-n/acada-adh/events/2023/08/01/" / name
+def dummy_tel_file(dummy_dl0):
+    return dummy_dl0["first_tel_path"]

@@ -3,12 +3,10 @@ from ctapipe.core import Provenance
 
 
 @pytest.mark.parametrize("all_chunks", [True, False])
-def test_multifiles(all_chunks, dummy_dl0, dl0_base):
+def test_multifiles(all_chunks, dummy_tel_file, dl0_base):
     from ctapipe_io_zfits.multifile import MultiFiles
 
-    directory = dl0_base / "TEL001/ctao-acada-n/acada-adh/events/2023/08/01"
-    filename = "TEL001_SDH001_20230802T021531_SBID0000000000000000123_OBSID0000000000000000456_TEL_SHOWER_CHUNK000.fits.fz"  # noqa
-    path = directory / filename
+    path = dummy_tel_file
 
     Provenance().start_activity("test_multifiles")
     with MultiFiles(path, all_chunks=all_chunks) as mf:

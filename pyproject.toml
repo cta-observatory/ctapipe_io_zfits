@@ -17,11 +17,11 @@ authors = [
 ]
 dynamic = ["version"]
 
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "numpy",
-    "protozfits~=2.4",
-    "ctapipe~=0.20.0",
+    "protozfits~=2.6",
+    "ctapipe~=0.23.0",
 ]
 
 [project.optional-dependencies]

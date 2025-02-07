@@ -1,4 +1,5 @@
 """DL0 Protozfits EventSource."""
+
 import logging
 from contextlib import ExitStack
 
@@ -101,13 +102,9 @@ def _fill_dl0_container(
     pixel_stored = PixelStatus.get_dvr_status(pixel_status) != 0
     n_pixels_nominal = camera_geometry.n_pixels
 
-    # fill not readout pixels with 0, reorder pixels, use 2d array when gain reduced
-    if n_channels == 2:
-        waveform = np.zeros((n_channels, n_pixels_nominal, n_samples), dtype=np.float32)
-        waveform[:, camera_config.pixel_id_map[pixel_stored]] = zfits_waveform
-    else:
-        waveform = np.zeros((n_pixels_nominal, n_samples), dtype=np.float32)
-        waveform[camera_config.pixel_id_map[pixel_stored]] = zfits_waveform[0]
+    # fill not readout pixels with 0, reorder pixels
+    waveform = np.zeros((n_channels, n_pixels_nominal, n_samples), dtype=np.float32)
+    waveform[:, camera_config.pixel_id_map[pixel_stored]] = zfits_waveform
 
     if ignore_samples_start != 0 or ignore_samples_end != 0:
         start = ignore_samples_start
@@ -115,10 +112,12 @@ def _fill_dl0_container(
         waveform = waveform[..., start:end]
 
     # reorder to nominal pixel order
-    pixel_status = np.zeros(n_pixels_nominal, dtype=tel_event.pixel_status.dtype)
-    pixel_status[camera_config.pixel_id_map] = pixel_status
+    pixel_status_reordered = np.zeros(
+        n_pixels_nominal, dtype=tel_event.pixel_status.dtype
+    )
+    pixel_status_reordered[camera_config.pixel_id_map] = pixel_status
 
-    channel_info = PixelStatus.get_channel_info(pixel_status)
+    channel_info = PixelStatus.get_channel_info(pixel_status_reordered)
     if n_channels == 1:
         selected_gain_channel = np.where(
             channel_info == PixelStatus.HIGH_GAIN_STORED,
@@ -129,7 +128,7 @@ def _fill_dl0_container(
         selected_gain_channel = None
 
     return DL0CameraContainer(
-        pixel_status=tel_event.pixel_status,
+        pixel_status=pixel_status_reordered,
         event_type=EventType(tel_event.event_type),
         selected_gain_channel=selected_gain_channel,
         event_time=cta_high_res_to_time(
@@ -167,7 +166,9 @@ class ProtozfitsDL0EventSource(EventSource):
             self._subarray_trigger_stream = self._subarray_trigger_file.DataStream[0]
             self.sb_id = self._subarray_trigger_stream.sb_id
             self.obs_id = self._subarray_trigger_stream.obs_id
-            self.subarray_id = self._subarray_trigger_stream.subarray_id
+            # still missing in current ACADA files
+            if self._subarray_trigger_stream.subarray_id != 0:
+                self.subarray_id = self._subarray_trigger_stream.subarray_id
         else:
             first_event = self._subarray_trigger_file.SubarrayEvents[0]
             self.sb_id = first_event.sb_id
@@ -190,11 +191,13 @@ class ProtozfitsDL0EventSource(EventSource):
         self._date_dirs = self.input_url.parent.relative_to(self.input_url.parents[3])
 
         self._open_telescope_files()
+        self._tel_event_buffer = {}
 
     def _get_tel_events_directory(self, tel_id):
+        tel_name = ARRAY_ELEMENTS[tel_id]["name"]
         return (
             self._dl0_base
-            / f"TEL{tel_id:03d}"
+            / tel_name
             / self._acada_user
             / "acada-adh/events"
             / self._date_dirs
@@ -254,6 +257,25 @@ class ProtozfitsDL0EventSource(EventSource):
     def scheduling_blocks(self) -> dict[int, SchedulingBlockContainer]:  # noqa: D102
         return self._scheduling_blocks
 
+    def _get_next_tel_event(self, tel_id, event_id):
+        tel_event = self._tel_event_buffer.pop((tel_id, event_id), None)
+        if tel_event is not None:
+            return tel_event
+
+        tel_file = self._telescope_files[tel_id]
+        tel_event = next(tel_file)
+
+        if tel_event.event_id != event_id:
+            self._tel_event_buffer[(tel_id, tel_event.event_id)] = tel_event
+            self.log.warning(
+                "No telescope data for event_id=%d, got event_id=%d",
+                event_id,
+                tel_event.event_id,
+            )
+            return None
+
+        return tel_event
+
     def _generator(self):
         for count, subarray_trigger in enumerate(
             self._subarray_trigger_file.SubarrayEvents
@@ -273,13 +295,10 @@ class ProtozfitsDL0EventSource(EventSource):
 
             for tel_id in array_event.trigger.tels_with_trigger:
                 tel_file = self._telescope_files[tel_id]
-                tel_event = next(tel_file)
-                if tel_event.event_id != array_event.index.event_id:
-                    raise ValueError(
-                        f"Telescope event for tel_id {tel_id} has different event id!"
-                        f" event_id of subarray event: {array_event.index.event_id}"
-                        f" event_id of telescope event: {tel_event.event_id}"
-                    )
+
+                tel_event = self._get_next_tel_event(tel_id, subarray_trigger.event_id)
+                if tel_event is None:
+                    continue
 
                 array_event.dl0.tel[tel_id] = _fill_dl0_container(
                     tel_event,

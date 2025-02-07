@@ -102,7 +102,7 @@ def _fill_dl0_container(
     pixel_stored = PixelStatus.get_dvr_status(pixel_status) != 0
     n_pixels_nominal = camera_geometry.n_pixels
 
-    # fill not readout pixels with 0, reorder pixels, use 2d array when gain reduced
+    # fill not readout pixels with 0, reorder pixels
     waveform = np.zeros((n_channels, n_pixels_nominal, n_samples), dtype=np.float32)
     waveform[:, camera_config.pixel_id_map[pixel_stored]] = zfits_waveform
 

@@ -20,7 +20,7 @@ dynamic = ["version"]
 requires-python = ">=3.10"
 dependencies = [
     "numpy",
-    "protozfits~=2.6",
+    "protozfits~=2.7",
     "ctapipe~=0.23.0",
 ]
 

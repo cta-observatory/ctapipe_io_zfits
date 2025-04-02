@@ -15,7 +15,7 @@ from ctapipe.containers import (
     TelescopeTriggerContainer,
     TriggerContainer,
 )
-from ctapipe.core.traits import Integer
+from ctapipe.core.traits import Bool, Integer
 from ctapipe.instrument import SubarrayDescription
 from ctapipe.io import DataLevel, EventSource
 from ctapipe.io.simteleventsource import GainChannel
@@ -150,6 +150,7 @@ class ProtozfitsDL0EventSource(EventSource):
     """
 
     subarray_id = Integer(default_value=1).tag(config=True)
+    warn_missing = Bool(default_value=True).tag(config=True)
 
     def __init__(self, input_url=None, **kwargs):
         if input_url is not None:
@@ -189,6 +190,11 @@ class ProtozfitsDL0EventSource(EventSource):
         self._dl0_base = self.input_url.parents[7]
         self._acada_user = self.input_url.parents[5].name
         self._date_dirs = self.input_url.parent.relative_to(self.input_url.parents[3])
+
+        if self.warn_missing:
+            self.log_missing = self.log.warning
+        else:
+            self.log_missing = self.log.debug
 
         self._open_telescope_files()
         self._tel_event_buffer = {}
@@ -263,13 +269,26 @@ class ProtozfitsDL0EventSource(EventSource):
             return tel_event
 
         tel_file = self._telescope_files[tel_id]
-        tel_event = next(tel_file)
+        if len(self._tel_event_buffer) < tel_file.n_open_files:
+            try:
+                tel_event = next(tel_file)
+            except StopIteration:
+                pass
+
+        if tel_event is None:
+            self.log_missing(
+                "No telescope data for event_id=%d, tel_id=%d, and no events left in file",
+                event_id,
+                tel_id,
+            )
+            return None
 
         if tel_event.event_id != event_id:
             self._tel_event_buffer[(tel_id, tel_event.event_id)] = tel_event
-            self.log.warning(
-                "No telescope data for event_id=%d, got event_id=%d",
+            self.log_missing(
+                "No telescope data for event_id=%d, tel_id=%d, got event_id=%d",
                 event_id,
+                tel_id,
                 tel_event.event_id,
             )
             return None
@@ -300,12 +319,18 @@ class ProtozfitsDL0EventSource(EventSource):
                 if tel_event is None:
                     continue
 
-                array_event.dl0.tel[tel_id] = _fill_dl0_container(
+                dl0_tel = _fill_dl0_container(
                     tel_event,
                     tel_file.data_stream,
                     tel_file.camera_config,
                     self.subarray.tel[tel_id].camera.geometry,
                 )
+                # FIXME: should this be the timestamp of the telescope trigger? Not the event?
+                # Is there a difference?
+                array_event.trigger.tel[tel_id] = TelescopeTriggerContainer(
+                    time=dl0_tel.event_time,
+                )
+                array_event.dl0.tel[tel_id] = dl0_tel
 
             yield array_event
 

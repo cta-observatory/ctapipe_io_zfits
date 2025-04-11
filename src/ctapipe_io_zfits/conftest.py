@@ -11,7 +11,7 @@ from ctapipe.containers import EventType
 from protozfits import DL0v1_Subarray_pb2 as DL0_Subarray
 from protozfits import DL0v1_Telescope_pb2 as DL0_Telescope
 from protozfits import ProtobufZOFits
-from protozfits.any_array_to_numpy import numpy_to_any_array
+from protozfits.anyarray import numpy_to_any_array
 
 from ctapipe_io_zfits.time import time_to_cta_high_res
 

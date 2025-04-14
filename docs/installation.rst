@@ -4,8 +4,17 @@ Installation
 User Installation
 -----------------
 
-At the moment, you need to install from github, see below.
+Install from PyPI using pip:
 
+.. code-block:: shell
+
+   $ pip install ctapipe_io_zfits
+
+or from conda-forge
+
+.. code-block:: shell
+
+   $ conda install ctapipe_io_zfits
 
 
 Developer Setup

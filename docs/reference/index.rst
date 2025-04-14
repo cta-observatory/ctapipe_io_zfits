@@ -6,4 +6,3 @@ API Reference
 
    ctapipe_io_zfits
    ctapipe_io_zfits.dl0
-

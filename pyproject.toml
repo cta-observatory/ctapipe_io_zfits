@@ -50,6 +50,7 @@ ProtozfitsDL0EventSource = "ctapipe_io_zfits.dl0:ProtozfitsDL0EventSource"
 
 [project.urls]
 repository = "https://github.com/cta-observatory/ctapipe_io_zfits"
+documentation = ""
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -53,3 +53,16 @@ html_logo = "_static/cta.png"
 
 # fixes "no sub file found" for members inherited from traitlets
 numpydoc_class_members_toctree = False
+
+
+nitpick_ignore = [
+    ("py:obj", "is_stream"),
+    ("py:obj", "obs_ids"),
+    ("py:obj", "simulation_config"),
+    ("py:obj", "simulated_shower_distributions"),
+    ("py:obj", "cross_validation_lock"),
+    ("py:obj", "atmosphere_density_profile"),
+]
+nitpick_ignore_regex = [
+    ("py:obj", r".*ProtozfitsDL0.*EventSource\..*"),
+]

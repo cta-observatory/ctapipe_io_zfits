@@ -1,5 +1,5 @@
-API Reference
-=============
+ctapipe_io_zfits
+================
 
 .. currentmodule:: ctapipe_io_zfits
 

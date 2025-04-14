@@ -6,7 +6,7 @@ Welcome to the ctapipe_io_zfits documentation!
     :caption: Contents:
 
     installation
-    reference
+    reference/index
 
 
 

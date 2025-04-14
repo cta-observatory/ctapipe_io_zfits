@@ -325,8 +325,11 @@ class ProtozfitsDL0EventSource(EventSource):
                     tel_file.camera_config,
                     self.subarray.tel[tel_id].camera.geometry,
                 )
-                # FIXME: should this be the timestamp of the telescope trigger? Not the event?
-                # Is there a difference?
+                # FIXME: This should be the trigger time, which is not identical
+                # in the data model to the event time, which is the start-of-readout.
+                # LST currently fills the trigger time into the event time.
+                # should change to also open the tel trigger stream or not fill,
+                # but ctapipe currently requires this to be present.
                 array_event.trigger.tel[tel_id] = TelescopeTriggerContainer(
                     time=dl0_tel.event_time,
                 )

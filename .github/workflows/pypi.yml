@@ -8,6 +8,15 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    # "trusted publisher" config, see
+    # https://docs.pypi.org/trusted-publishers/using-a-publisher/
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ctapipe-io-zfits
+    permissions:
+      id-token: write
+
     steps:
       - uses: actions/checkout@v4
 
@@ -27,6 +36,3 @@ jobs:
 
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.pypi_token }}

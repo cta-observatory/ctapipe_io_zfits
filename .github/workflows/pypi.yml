@@ -8,8 +8,17 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    # "trusted publisher" config, see
+    # https://docs.pypi.org/trusted-publishers/using-a-publisher/
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ctapipe-io-zfits
+    permissions:
+      id-token: write
+
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # make sure we have version info
       - run: git fetch --tags
@@ -17,7 +26,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
@@ -27,8 +36,3 @@ jobs:
 
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.pypi_token }}
-          # remove next line for actual publishing to real pypi
-          repository_url: https://test.pypi.org/legacy/

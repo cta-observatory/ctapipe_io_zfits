@@ -29,10 +29,10 @@ test = [
   "pytest",
   "pytest-cov",
 ]
-doc = [
+docs = [
   "sphinx",
   "numpydoc",
-  "pydata-sphinx-theme",
+  "ctao-sphinx-theme",
 ]
 dev = [
   "setuptools_scm",
@@ -50,6 +50,7 @@ ProtozfitsDL0EventSource = "ctapipe_io_zfits.dl0:ProtozfitsDL0EventSource"
 
 [project.urls]
 repository = "https://github.com/cta-observatory/ctapipe_io_zfits"
+documentation = "https://ctapipe_io_zfits.readthedocs.io/"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -5,10 +5,12 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 # -- Project information -----------------------------------------------------
+from datetime import date
+
 import ctapipe_io_zfits
 
 project = "ctapipe_io_zfits"
-copyright = "2023, CTA Observatory"
+copyright = f"{date.today().year}, CTAO"
 author = "Maximilian Linhoff"
 version = ctapipe_io_zfits.__version__
 release = version
@@ -32,13 +34,13 @@ default_role = "py:obj"
 
 # intersphinx allows referencing other packages sphinx docs
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3.9", None),
+    "python": ("https://docs.python.org/3/", None),
     "traitlets": ("https://traitlets.readthedocs.io/en/stable/", None),
-    "ctapipe": ("https://ctapipe.readthedocs.io/en/v0.20.0/", None),
+    "ctapipe": ("https://ctapipe.readthedocs.io/en/v0.24.0/", None),
 }
 
 # -- Options for HTML output -------------------------------------------------
-html_theme = "pydata_sphinx_theme"
+html_theme = "ctao"
 html_theme_options = {
     "navigation_with_keys": False,
 }
@@ -51,3 +53,16 @@ html_logo = "_static/cta.png"
 
 # fixes "no sub file found" for members inherited from traitlets
 numpydoc_class_members_toctree = False
+
+
+nitpick_ignore = [
+    ("py:obj", "is_stream"),
+    ("py:obj", "obs_ids"),
+    ("py:obj", "simulation_config"),
+    ("py:obj", "simulated_shower_distributions"),
+    ("py:obj", "cross_validation_lock"),
+    ("py:obj", "atmosphere_density_profile"),
+]
+nitpick_ignore_regex = [
+    ("py:obj", r".*ProtozfitsDL0.*EventSource\..*"),
+]

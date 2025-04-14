@@ -32,7 +32,7 @@ test = [
 doc = [
   "sphinx",
   "numpydoc",
-  "pydata-sphinx-theme",
+  "ctao-sphinx-theme",
 ]
 dev = [
   "setuptools_scm",

@@ -21,13 +21,13 @@ jobs:
   static-code-checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - uses: pre-commit/action@v3.0.0
+          python-version: "3.12"
+      - uses: pre-commit/action@v3.0.1
         with:
           extra_args: --files $(git diff origin/main --name-only)
 
@@ -48,10 +48,10 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -83,14 +83,14 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install doc dependencies
         run: |
@@ -99,13 +99,4 @@ jobs:
           python -c 'import ctapipe_io_zfits ; print(ctapipe_io_zfits.__version__)'
 
       - name: Build docs
-        run: make -C docs html SPHINXOPTS="-W --keep-going --color"
-
-      - name: Deploy to github pages
-        # only run on push to master
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          folder: docs/build/html
-          clean: true
-          single_commit: true
+        run: make -C docs html SPHINXOPTS="--keep-going --color --nitpicky --fail-on-warning"

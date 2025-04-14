@@ -94,7 +94,7 @@ jobs:
 
       - name: Install doc dependencies
         run: |
-          pip install -e .[doc]
+          pip install -e .[docs]
           git describe --tags
           python -c 'import ctapipe_io_zfits ; print(ctapipe_io_zfits.__version__)'
 

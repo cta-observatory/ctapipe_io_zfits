@@ -11,7 +11,7 @@ name = "ctapipe_io_zfits"
 
 description = "ctapipe io plugin for reading data in zfits file (ACADA Rel 1 DL0, CTAO R1v1)"
 readme = "README.md"
-license = {text = "BSD-3-Clause"}
+license = "BSD-3-Clause"
 authors = [
     {name = "Maximilian Linhoff", email = "maximilian.linhoff@tu-dortmund.de"},
 ]

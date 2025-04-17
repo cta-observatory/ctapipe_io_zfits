@@ -37,13 +37,20 @@ jobs:
         include:
           - python-version: "3.10"
             os: ubuntu-latest
+            ctapipe: "0.23.1"
 
           - python-version: "3.11"
             os: ubuntu-latest
+            ctapipe: "0.24.0"
 
           - python-version: "3.12"
             os: ubuntu-latest
             extra-args: ['codecov']
+            ctapipe: "0.25.0"
+
+          - python-version: "3.13"
+            os: ubuntu-latest
+            ctapipe: "0.25.0"
 
     runs-on: ${{ matrix.os }}
 
@@ -68,7 +75,9 @@ jobs:
         run: pip install .[test]
 
       - name: Install the package in editable mode
-        run: pip install --editable .[test]
+        run: |
+          pip install --editable .[test]
+          pip install ctapipe==${{ matrix.ctapipe }}
 
       - name: Test with pytest
         run: |

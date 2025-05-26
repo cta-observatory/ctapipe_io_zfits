@@ -97,7 +97,7 @@ def _fill_dl0_container(
     if n_pixels_stored == camera_config.num_pixels and np.all(
         PixelStatus.get_dvr_status(pixel_status) == 0
     ):
-        pixel_status = pixel_status | PixelStatus.DVR_STORED_AS_SIGNAL
+        pixel_status = pixel_status | PixelStatus.DVR_1
 
     pixel_stored = PixelStatus.get_dvr_status(pixel_status) != 0
     n_pixels_nominal = camera_geometry.n_pixels

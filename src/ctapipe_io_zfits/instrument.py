@@ -1,4 +1,5 @@
 """Definitionas of the instrument configuration."""
+
 import json
 from functools import cache
 from importlib.resources import as_file, files
@@ -101,10 +102,11 @@ def get_tel_positions(tel_ids, positions, reference_location):
     )
 
     ground_frame = GroundFrame.from_earth_location(
-        locations, reference_location=reference_location,
+        locations,
+        reference_location=reference_location,
     )
     coords = np.atleast_2d(ground_frame.cartesian.xyz.T)
-    return {tel_id: coord for tel_id, coord in zip(tel_ids, coords)}
+    return {tel_id: coord for tel_id, coord in zip(tel_ids, coords, strict=True)}
 
 
 def get_reference_locations(positions):

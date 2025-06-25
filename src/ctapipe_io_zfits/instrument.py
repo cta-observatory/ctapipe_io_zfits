@@ -93,7 +93,6 @@ def get_array_element_positions(site):
 
 def get_tel_positions(tel_ids, positions, reference_location):
     """Get telescope positions in GroundFrame for given tel_ids."""
-    print(tel_ids)
     tel_positions = positions.loc[np.array(tel_ids)]
     locations = EarthLocation(
         x=tel_positions["x"],

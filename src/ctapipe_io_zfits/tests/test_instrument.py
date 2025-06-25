@@ -1,3 +1,6 @@
+import astropy.units as u
+
+
 def test_load_subarray():
     from ctapipe_io_zfits.instrument import _load_subarrays
 
@@ -30,3 +33,9 @@ def test_build_subarray_description():
     subarray = build_subarray_description(subarray_id=1)
     assert len(subarray) == 1
     assert subarray.tel[1].name == "LSTN-01"
+    assert u.isclose(subarray.reference_location.lon, -17.89 * u.deg, rtol=0.01)
+    assert u.isclose(subarray.reference_location.lat, 28.76 * u.deg, rtol=0.01)
+
+    ref_height = subarray.reference_location.height
+    assert u.isclose(ref_height, 2149 * u.m, rtol=0.01)
+    assert u.isclose(ref_height + subarray.positions[1][2], 2185 * u.m, rtol=0.001)

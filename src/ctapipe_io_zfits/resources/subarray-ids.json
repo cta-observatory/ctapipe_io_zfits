@@ -12,17 +12,20 @@
     {
       "id": 1,
       "name": "LST1",
-      "array_element_ids": [1]
+      "array_element_ids": [1],
+      "site": "CTAO_N"
     },
     {
       "id": 2,
       "name": "CTAO-N LSTs",
-      "array_element_ids": [1, 2, 3, 4]
+      "array_element_ids": [1, 2, 3, 4],
+      "site": "CTAO_N"
     },
     {
       "id": 3,
       "name": "CTAO-N MSTs 1st batch",
-      "array_element_ids": [5, 6, 7, 8, 9]
+      "array_element_ids": [5, 6, 7, 8, 9],
+      "site": "CTAO_N"
     }
   ]
 }

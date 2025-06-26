@@ -1,11 +1,14 @@
 """Definitionas of the instrument configuration."""
+
 import json
 from functools import cache
 from importlib.resources import as_file, files
 
 import astropy.units as u
+import numpy as np
 from astropy.coordinates import EarthLocation
-from ctapipe.coordinates import CameraFrame
+from astropy.table import QTable
+from ctapipe.coordinates import CameraFrame, GroundFrame
 from ctapipe.core import Provenance
 from ctapipe.instrument import (
     CameraDescription,
@@ -79,6 +82,41 @@ def get_array_element_ids(subarray_id: int) -> tuple[int]:
     return tuple(subarray["array_element_ids"])
 
 
+@cache
+def get_array_element_positions(site):
+    with as_file(RESOURCES / f"array_element_positions_{site.lower()}.ecsv") as path:
+        positions = QTable.read(path)
+        Provenance().add_input_file(path, "array element positions")
+    positions.add_index("ae_id")
+    return positions
+
+
+def get_tel_positions(tel_ids, positions, reference_location):
+    """Get telescope positions in GroundFrame for given tel_ids."""
+    tel_positions = positions.loc[np.array(tel_ids)]
+    locations = EarthLocation(
+        x=tel_positions["x"],
+        y=tel_positions["y"],
+        z=tel_positions["z"],
+    )
+
+    ground_frame = GroundFrame.from_earth_location(
+        locations,
+        reference_location=reference_location,
+    )
+    coords = np.atleast_2d(ground_frame.cartesian.xyz.T)
+    return {tel_id: coord for tel_id, coord in zip(tel_ids, coords, strict=True)}
+
+
+def get_reference_locations(positions):
+    """Get the reference position as EarthLocation."""
+    return EarthLocation(
+        x=u.Quantity(positions.meta["reference_x"]),
+        y=u.Quantity(positions.meta["reference_y"]),
+        z=u.Quantity(positions.meta["reference_z"]),
+    )
+
+
 def build_subarray_description(subarray_id):
     """Create a SubarrayDescription from the subarray_id."""
     try:
@@ -86,8 +124,12 @@ def build_subarray_description(subarray_id):
     except KeyError:
         raise ValueError(f"Unknown subarray_id: {subarray_id}") from None
 
+    site = subarray["site"]
     tel_ids = get_array_element_ids(subarray_id)
     array_elements = get_array_elements_by_id()
+    positions = get_array_element_positions(site)
+    reference_location = get_reference_locations(positions)
+    tel_positions = get_tel_positions(tel_ids, positions, reference_location)
 
     telescopes = {}
     for tel_id in tel_ids:
@@ -118,11 +160,6 @@ def build_subarray_description(subarray_id):
     return SubarrayDescription(
         name=subarray["name"],
         tel_descriptions=telescopes,
-        # FIXME: fill actual telescope positions
-        tel_positions={tel_id: [0, 0, 0] * u.m for tel_id in telescopes},
-        # FIXME: fill actual reference location
-        # height is currently the height of LST Prod2 obs level
-        reference_location=EarthLocation(
-            lon=0 * u.deg, lat=0 * u.deg, height=2199 * u.m
-        ),
+        tel_positions=tel_positions,
+        reference_location=reference_location,
     )

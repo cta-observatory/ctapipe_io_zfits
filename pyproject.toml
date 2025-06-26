@@ -35,6 +35,7 @@ docs = [
   "ctao-sphinx-theme",
 ]
 dev = [
+  "pyproj",
   "setuptools_scm",
   "pre-commit",
 ]

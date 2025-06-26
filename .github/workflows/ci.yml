@@ -46,11 +46,11 @@ jobs:
           - python-version: "3.12"
             os: ubuntu-latest
             extra-args: ['codecov']
-            ctapipe: "0.25.0"
+            ctapipe: "0.25.1"
 
           - python-version: "3.13"
             os: ubuntu-latest
-            ctapipe: "0.25.0"
+            ctapipe: "0.26.0"
 
     runs-on: ${{ matrix.os }}
 

@@ -52,6 +52,10 @@ jobs:
             os: ubuntu-latest
             ctapipe: "0.26.0"
 
+          - python-version: "3.13"
+            os: ubuntu-latest
+            ctapipe: "0.27.0"
+
     runs-on: ${{ matrix.os }}
 
     steps:

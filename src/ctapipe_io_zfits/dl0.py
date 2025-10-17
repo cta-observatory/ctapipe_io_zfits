@@ -3,6 +3,7 @@
 import logging
 from contextlib import ExitStack
 
+import ctapipe
 import numpy as np
 from ctapipe.containers import (
     ArrayEventContainer,
@@ -19,6 +20,7 @@ from ctapipe.core.traits import Bool, Integer
 from ctapipe.instrument import SubarrayDescription
 from ctapipe.io import DataLevel, EventSource
 from ctapipe.io.simteleventsource import GainChannel
+from packaging.version import Version
 from protozfits import File
 
 from .instrument import build_subarray_description, get_array_elements_by_id
@@ -33,6 +35,11 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 ARRAY_ELEMENTS = get_array_elements_by_id()
+
+
+CTAPIPE_GE_0_27 = Version(ctapipe.__version__) >= Version("0.27.0a0")
+if CTAPIPE_GE_0_27:
+    from ctapipe.containers import CameraCalibrationContainer
 
 
 def _is_compatible(input_url, extname, allowed_protos):
@@ -314,6 +321,7 @@ class ProtozfitsDL0EventSource(EventSource):
 
             for tel_id in subarray_trigger.tel_ids_with_data:
                 tel_file = self._telescope_files[tel_id]
+                camera = self.subarray.tel[tel_id].camera
 
                 tel_event = self._get_next_tel_event(tel_id, subarray_trigger.event_id)
                 if tel_event is None:
@@ -323,7 +331,7 @@ class ProtozfitsDL0EventSource(EventSource):
                     tel_event,
                     tel_file.data_stream,
                     tel_file.camera_config,
-                    self.subarray.tel[tel_id].camera.geometry,
+                    camera.geometry,
                 )
                 # FIXME: This should be the trigger time, which is not identical
                 # in the data model to the event time, which is the start-of-readout.
@@ -335,7 +343,23 @@ class ProtozfitsDL0EventSource(EventSource):
                 )
                 array_event.dl0.tel[tel_id] = dl0_tel
 
+                # fill minimum calibration info to make tool work.
+                if CTAPIPE_GE_0_27:
+                    n_channels = camera.readout.n_channels
+                    _fill_calibration_container(array_event, tel_id, n_channels)
+
             yield array_event
+
+
+def _fill_calibration_container(array_event, tel_id, n_channels):
+    pixel_status = array_event.dl0.tel[tel_id].pixel_status
+    broken = PixelStatus.get_channel_info(pixel_status) == 0
+    mask = np.zeros((n_channels, len(broken)), dtype=bool)
+    mask[:, broken] = True
+
+    array_event.monitoring.tel[tel_id].camera.coefficients = CameraCalibrationContainer(
+        outlier_mask=mask,
+    )
 
 
 class ProtozfitsDL0TelescopeEventSource(EventSource):
@@ -412,6 +436,8 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
 
     def _fill_event(self, count, zfits_event) -> ArrayEventContainer:
         tel_id = self.tel_id
+        camera = self.subarray.tel[tel_id].camera
+
         # until ctapipe allows telescope event sources
         # we have to fill an arrayevent with just one telescope here
         time = cta_high_res_to_time(
@@ -434,10 +460,13 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
             zfits_event,
             self._multi_file.data_stream,
             self._multi_file.camera_config,
-            self.subarray.tel[tel_id].camera.geometry,
+            camera.geometry,
             ignore_samples_start=self.ignore_samples_start,
             ignore_samples_end=self.ignore_samples_end,
         )
+        # fill minimum calibration info to make tool work.
+        if CTAPIPE_GE_0_27:
+            _fill_calibration_container(array_event, tel_id, camera.readout.n_channels)
         return array_event
 
     def _generator(self):

@@ -208,7 +208,8 @@ def dummy_dl0(dl0_base, request):
                     event_time_s=int(time_s),
                     event_time_qns=int(time_qns),
                     trigger_ids=numpy_to_any_array(np.array([event_id])),
-                    tel_ids=numpy_to_any_array(np.array([1])),
+                    tel_ids_with_trigger=numpy_to_any_array(np.array([1])),
+                    tel_ids_with_data=numpy_to_any_array(np.array([1])),
                 )
             )
 

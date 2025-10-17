@@ -308,11 +308,11 @@ class ProtozfitsDL0EventSource(EventSource):
                     time=cta_high_res_to_time(
                         subarray_trigger.event_time_s, subarray_trigger.event_time_qns
                     ),
-                    tels_with_trigger=subarray_trigger.tel_ids.tolist(),
+                    tels_with_trigger=subarray_trigger.tel_ids_with_trigger.tolist(),
                 ),
             )
 
-            for tel_id in array_event.trigger.tels_with_trigger:
+            for tel_id in subarray_trigger.tel_ids_with_data:
                 tel_file = self._telescope_files[tel_id]
 
                 tel_event = self._get_next_tel_event(tel_id, subarray_trigger.event_id)

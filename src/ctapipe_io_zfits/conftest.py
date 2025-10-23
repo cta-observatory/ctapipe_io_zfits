@@ -267,7 +267,7 @@ def dummy_tel_file_no_ids(dl0_base):
     """Test for files that do not contain SBID / OBSID in their names.
 
     The files with calibration events (interleaved flatfield and pedestals)
-    during the ACADA LST tests 20250-10-22 did not contain these fields due to a bug.
+    during the ACADA LST tests 2025-10-22 did not contain these fields due to a bug.
     """
     rng = np.random.default_rng(0)
 

@@ -109,7 +109,7 @@ def get_file_info(path, convention):
         sb_id=sb_id,
         obs_id=obs_id,
         chunk=chunk,
-        data_type=groups.get("data_type") or "",
+        data_type=groups.get("data_type"),
         sb_id_padding=sb_id_padding,
         obs_id_padding=obs_id_padding,
         chunk_padding=chunk_padding,
@@ -173,6 +173,10 @@ class MultiFiles(Component):
             "Looking for parallel data source using pattern: %s", data_source_pattern
         )
         paths = sorted(self.directory.glob(data_source_pattern))
+        if len(paths) == 0:
+            raise ValueError(
+                f"Did not find any files matching pattern: {data_source_pattern}"
+            )
         self.log.debug("Found %d matching paths: %s", len(paths), paths)
         self.data_sources = {
             get_file_info(path, convention=self.filename_convention).data_source

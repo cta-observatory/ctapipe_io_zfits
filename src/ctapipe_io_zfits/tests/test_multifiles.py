@@ -85,3 +85,37 @@ def test_acada_dpps_icd_filename_conventions(data_type):
     assert file_info.sb_id_padding == 19
     assert file_info.obs_id_padding == 19
     assert file_info.chunk_padding == 3
+
+
+@pytest.mark.parametrize("data_type", [None, "CALIB"])
+def test_acada_dpps_icd_filename_conventions_missing_ids(data_type):
+    from ctapipe_io_zfits.multifile import filename_conventions, get_file_info
+
+    data_type_part = "" if data_type is None else f"_{data_type}"
+    filename = f"TEL001_SDH001_20230802T021531{data_type_part}_CHUNK000.fits.fz"  # noqa
+
+    acada = filename_conventions["acada_dpps_icd"]
+
+    m = acada["re"].match(filename)
+    assert m is not None
+    groups = m.groupdict()
+
+    assert groups["tel_id"] == "001"
+    assert groups["data_source"] == "SDH001"
+    assert groups["timestamp"] == "20230802T021531"
+    assert groups["data_type"] == data_type
+    assert groups["sb_id"] is None
+    assert groups["obs_id"] is None
+    assert groups["chunk"] == "000"
+
+    path = f"foo/bar/{filename}"
+    file_info = get_file_info(path, convention="acada_dpps_icd")
+    assert file_info.tel_id == 1
+    assert file_info.data_source == "SDH001"
+    assert file_info.timestamp == "20230802T021531"
+    assert file_info.sb_id is None
+    assert file_info.obs_id is None
+    assert file_info.chunk == 0
+    assert file_info.sb_id_padding is None
+    assert file_info.obs_id_padding is None
+    assert file_info.chunk_padding == 3

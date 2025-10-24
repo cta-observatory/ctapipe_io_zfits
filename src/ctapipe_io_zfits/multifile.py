@@ -1,6 +1,8 @@
 """Load multiple stream files in parallel and iterate over events in order."""
+
 import re
-from dataclasses import dataclass, field
+from copy import copy
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from queue import Empty, PriorityQueue
 from typing import Any
@@ -27,6 +29,7 @@ class NextEvent:
 class FileInfo:
     tel_id: int
     data_source: str
+    timestamp: str
     sb_id: int
     obs_id: int
     chunk: int
@@ -36,22 +39,47 @@ class FileInfo:
     chunk_padding: int = 0
 
 
+def acada_rel1_filename(info):
+    template = "Tel{tel_id:03d}_{data_source}_{timestamp}_sbid{sb_id:0{sb_id_padding}d}_obid{obs_id:0{obs_id_padding}d}_{chunk:0{chunk_padding}d}.fits.fz"  # noqa
+    return template.format(**asdict(info))
+
+
+def acada_dpps_icd_filename(info):
+    name = f"TEL{info.tel_id:03d}_{info.data_source}_{info.timestamp}"
+    if info.sb_id is not None:
+        name += f"_SBID{info.sb_id:0{info.sb_id_padding}d}"
+    if info.obs_id is not None:
+        name += f"_OBSID{info.obs_id:0{info.obs_id_padding}d}"
+
+    if info.data_type is not None:
+        name += f"_{info.data_type}"
+
+    name += f"_CHUNK{info.chunk:0{info.chunk_padding}d}.fits.fz"
+    return name
+
+
 filename_conventions = {
     # Tel001_SDH_3001_20231003T204445_sbid2000000008_obid2000000016_9.fits.fz
     "acada_rel1": {
         "re": re.compile(
             r"Tel(?P<tel_id>\d+)_(?P<data_source>SDH_\d+)_(?P<timestamp>\d{8}T\d{6})_sbid(?P<sb_id>\d+)_obid(?P<obs_id>\d+)_(?P<chunk>\d+)\.fits\.fz"  # noqa
         ),
-        "template": "Tel{tel_id:03d}_{data_source}_{timestamp}_sbid{sb_id:0{sb_id_padding}d}_obid{obs_id:0{obs_id_padding}d}_{chunk:0{chunk_padding}d}.fits.fz",  # noqa
+        "template": acada_rel1_filename,
     },
     "acada_dpps_icd": {
         # TEL001_SDH0001_20231013T220427_SBID0000000002000000013_OBSID0000000002000000027_CHUNK000.fits.fz
         "re": re.compile(
-            r"TEL(?P<tel_id>\d+)_(?P<data_source>SDH\d+)_(?P<timestamp>\d{8}T\d{6})_SBID(?P<sb_id>\d+)_OBSID(?P<obs_id>\d+)(?P<data_type>_[a-zA-Z0-9_]+)?_CHUNK(?P<chunk>\d+)\.fits\.fz"  # noqa
+            r"TEL(?P<tel_id>\d+)_(?P<data_source>SDH\d+)_(?P<timestamp>\d{8}T\d{6})(?:_SBID(?P<sb_id>\d+))?(?:_OBSID(?P<obs_id>\d+))?(:?_(?P<data_type>[a-zA-Z0-9_]+))?_CHUNK(?P<chunk>\d+)\.fits\.fz"  # noqa
         ),
-        "template": "TEL{tel_id:03d}_{data_source}_{timestamp}_SBID{sb_id:0{sb_id_padding}d}_OBSID{obs_id:0{obs_id_padding}d}{data_type}_CHUNK{chunk:0{chunk_padding}d}.fits.fz",  # noqa
+        "template": acada_dpps_icd_filename,
     },
 }
+
+
+def optional_int(val):
+    if val is None:
+        return val
+    return int(val)
 
 
 def get_file_info(path, convention):
@@ -66,21 +94,22 @@ def get_file_info(path, convention):
         )
 
     groups = m.groupdict()
-    sb_id = int(groups["sb_id"])
-    obs_id = int(groups["obs_id"])
+    sb_id = optional_int(groups["sb_id"])
+    obs_id = optional_int(groups["obs_id"])
     chunk = int(groups["chunk"])
 
-    sb_id_padding = len(groups["sb_id"])
-    obs_id_padding = len(groups["obs_id"])
+    sb_id_padding = len(groups["sb_id"]) if groups["sb_id"] is not None else None
+    obs_id_padding = len(groups["obs_id"]) if groups["obs_id"] is not None else None
     chunk_padding = len(groups["chunk"])
 
     return FileInfo(
         tel_id=int(groups["tel_id"]),
         data_source=groups["data_source"],
+        timestamp=groups["timestamp"],
         sb_id=sb_id,
         obs_id=obs_id,
         chunk=chunk,
-        data_type=groups.get("data_type") or "",
+        data_type=groups.get("data_type"),
         sb_id_padding=sb_id_padding,
         obs_id_padding=obs_id_padding,
         chunk_padding=chunk_padding,
@@ -132,28 +161,22 @@ class MultiFiles(Component):
 
         file_info = get_file_info(path, convention=self.filename_convention)
         self.directory = self.path.parent
-        self.filename_template = filename_conventions[self.filename_convention][
-            "template"
-        ]
+        convention = filename_conventions[self.filename_convention]
+        self.filename_template = convention["template"]
 
         # figure out how many data sources we have:
-        data_source_pattern = self.filename_template.format(
-            tel_id=file_info.tel_id,
-            data_source="*",
-            timestamp="*",
-            sb_id=file_info.sb_id,
-            obs_id=file_info.obs_id,
-            chunk=file_info.chunk,
-            data_type=file_info.data_type,
-            sb_id_padding=file_info.sb_id_padding,
-            obs_id_padding=file_info.obs_id_padding,
-            chunk_padding=file_info.chunk_padding,
-        )
+        pattern_info = copy(file_info)
+        pattern_info.data_source = "*"
+        data_source_pattern = self.filename_template(pattern_info)
 
         self.log.debug(
             "Looking for parallel data source using pattern: %s", data_source_pattern
         )
         paths = sorted(self.directory.glob(data_source_pattern))
+        if len(paths) == 0:
+            raise ValueError(
+                f"Did not find any files matching pattern: {data_source_pattern}"
+            )
         self.log.debug("Found %d matching paths: %s", len(paths), paths)
         self.data_sources = {
             get_file_info(path, convention=self.filename_convention).data_source
@@ -195,18 +218,11 @@ class MultiFiles(Component):
         self._current_chunk[data_source] += 1
         chunk = self._current_chunk[data_source]
 
-        pattern = self.filename_template.format(
-            tel_id=self._first_file_info.tel_id,
-            data_source=data_source,
-            timestamp="*",
-            sb_id=self._first_file_info.sb_id,
-            obs_id=self._first_file_info.obs_id,
-            data_type=self._first_file_info.data_type,
-            chunk=chunk,
-            sb_id_padding=self._first_file_info.sb_id_padding,
-            obs_id_padding=self._first_file_info.obs_id_padding,
-            chunk_padding=self._first_file_info.chunk_padding,
-        )
+        next_info = copy(self._first_file_info)
+        next_info.data_source = data_source
+        next_info.chunk = chunk
+        pattern = self.filename_template(next_info)
+
         try:
             # currently there is a timing issue between acada / EVB resulting
             # in two files with chunk000, the first file technically has the last

@@ -58,6 +58,19 @@ def dl0_base(acada_base):
     return dl0
 
 
+def get_module_and_pixel_id_map(n_modules, n_pixels_module, missing_modules=None):
+    module_id_map = np.arange(n_modules)
+
+    if missing_modules is not None:
+        module_id_map = np.delete(module_id_map, missing_modules)
+        n_modules = len(module_id_map)
+
+    module_ids = np.repeat(module_id_map, n_pixels_module)
+    pixel_id_map = module_ids + np.tile(np.arange(n_pixels_module), n_modules)
+
+    return module_id_map, pixel_id_map
+
+
 # we parametrize the dummy dl0 for a couple of different scenarios.
 # Tests using this fixture will be run under all scenarios automatically
 @pytest.fixture(
@@ -123,15 +136,10 @@ def dummy_dl0(dl0_base, request):
         sb_creator_id=sb_creator_id,
     )
 
-    n_modules = 265
-    n_pixels_module = 7
-    module_id_map = np.arange(n_modules)
-    if config["missing_modules"]:
-        module_id_map = np.delete(module_id_map, [50, 200])
-        n_modules = len(module_id_map)
-
-    module_ids = np.repeat(module_id_map, n_pixels_module)
-    pixel_id_map = module_ids + np.tile(np.arange(n_pixels_module), n_modules)
+    missing_modules = [50, 200] if config["missing_modules"] else None
+    module_id_map, pixel_id_map = get_module_and_pixel_id_map(
+        n_modules=265, n_pixels_module=7, missing_modules=missing_modules
+    )
     n_pixels = len(pixel_id_map)
 
     camera_configuration = DL0_Telescope.CameraConfiguration(
@@ -139,13 +147,13 @@ def dummy_dl0(dl0_base, request):
         local_run_id=789,
         config_time_s=obs_start.unix,
         camera_config_id=47,
-        num_pixels=n_pixels,
+        num_pixels=len(pixel_id_map),
         pixel_id_map=numpy_to_any_array(pixel_id_map),
         module_id_map=numpy_to_any_array(module_id_map),
         num_channels=2,
         num_samples_nominal=40,
         num_samples_long=0,
-        num_modules=n_modules,
+        num_modules=len(module_id_map),
         sampling_frequency=1024,
     )
 
@@ -252,3 +260,166 @@ def dummy_dl0(dl0_base, request):
 @pytest.fixture(scope="session")
 def dummy_tel_file(dummy_dl0):
     return dummy_dl0["first_tel_path"]
+
+
+@pytest.fixture(scope="session")
+def dummy_tel_file_no_ids(dl0_base):
+    """Test for files that do not contain SBID / OBSID in their names.
+
+    The files with calibration events (interleaved flatfield and pedestals)
+    during the ACADA LST tests 2025-10-22 did not contain these fields due to a bug.
+    """
+    rng = np.random.default_rng(0)
+
+    sb_creator_id = 2
+    sb_id = int(sb_creator_id * 1e9) + 123
+    obs_id = int(sb_creator_id * 1e9) + 234
+
+    obs_start = Time("2025-10-22T23:50:01")
+    date = evening_of_obs(obs_start, timezone_cta_n)
+
+    date_path = f"{date.year}/{date.month:02d}/{date.day:02d}"
+    directory = dl0_base / "LSTN-01" / acada_user / "acada-adh/events" / date_path
+    directory.mkdir(exist_ok=True, parents=True)
+
+    sdh_ids = (0, 1, 2, 3)
+
+    # sdh_id and chunk_id will be filled later -> double {{}}
+    obs_start_path_string = f"{obs_start.to_datetime(timezone.utc):%Y%m%dT%H%M%S}"
+    # ped was having no info, ff had "CALIB" but no ids
+    lst_ped_pattern = f"TEL001_SDH{{sdh_id:03d}}_{obs_start_path_string}_CHUNK{{chunk_id:03d}}.fits.fz"  # noqa
+    lst_ff_pattern = f"TEL001_SDH{{sdh_id:03d}}_{obs_start_path_string}_CALIB_CHUNK{{chunk_id:03d}}.fits.fz"  # noqa
+
+    data_stream = DL0_Telescope.DataStream(
+        tel_id=1,
+        sb_id=sb_id,
+        obs_id=obs_id,
+        waveform_scale=60.0,
+        waveform_offset=5.0,
+        sb_creator_id=sb_creator_id,
+    )
+
+    module_id_map, pixel_id_map = get_module_and_pixel_id_map(
+        n_modules=265, n_pixels_module=7
+    )
+    n_pixels = len(pixel_id_map)
+
+    camera_configuration = DL0_Telescope.CameraConfiguration(
+        tel_id=1,
+        local_run_id=789,
+        config_time_s=obs_start.unix,
+        camera_config_id=47,
+        num_pixels=n_pixels,
+        pixel_id_map=numpy_to_any_array(pixel_id_map),
+        module_id_map=numpy_to_any_array(module_id_map),
+        num_channels=2,
+        num_samples_nominal=40,
+        num_samples_long=0,
+        num_modules=len(module_id_map),
+        sampling_frequency=1024,
+    )
+
+    time = obs_start
+
+    ctx = ExitStack()
+    proto_kwargs = dict(
+        n_tiles=5, rows_per_tile=20, compression_block_size_kb=64 * 1024
+    )
+
+    chunksize = 10
+    data_types = ["flatfield", "pedestal"]
+    events_written = {
+        (sdh_id, data_type): 0 for sdh_id in sdh_ids for data_type in data_types
+    }
+    current_chunk = {
+        (sdh_id, data_type): -1 for sdh_id in sdh_ids for data_type in data_types
+    }
+    mean_charge = {"flatfield": 70.0, "pedestal": 0.0}
+
+    open_files = {}
+
+    def open_next_event_file(sdh_id, data_type):
+        key = (sdh_id, data_type)
+        if key in open_files:
+            open_files[key].close()
+
+        current_chunk[key] += 1
+        chunk_id = current_chunk[key]
+
+        if data_type == "flatfield":
+            pattern = lst_ff_pattern
+        else:
+            pattern = lst_ped_pattern
+
+        path = directory / pattern.format(sdh_id=sdh_id, chunk_id=chunk_id)
+
+        print(f"Opening path: {path} for {data_type=}, {chunk_id=}")
+        f = ctx.enter_context(ProtobufZOFits(**proto_kwargs))
+        f.open(str(path))
+        f.move_to_new_table("DataStream")
+        f.write_message(data_stream)
+        f.move_to_new_table("CameraConfiguration")
+        f.write_message(camera_configuration)
+        f.move_to_new_table("Events")
+        open_files[key] = f
+        events_written[key] = 0
+
+    def convert_waveform(waveform):
+        scale = data_stream.waveform_scale
+        offset = data_stream.waveform_offset
+        return ((waveform + offset) * scale).astype(np.uint16)
+
+    event_types = {
+        "flatfield": EventType.FLATFIELD.value,
+        "pedestal": EventType.SKY_PEDESTAL.value,
+    }
+
+    with ctx:
+        for data_type in data_types:
+            for sdh_id in sdh_ids:
+                open_next_event_file(sdh_id, data_type)
+
+        for i in range(100):
+            # round robin over data types
+            data_type = data_types[i % len(data_types)]
+
+            event_id = i + 1
+            time_s, time_qns = time_to_cta_high_res(time)
+
+            sdh_id = sdh_ids[i // 2 % len(sdh_ids)]
+            key = (sdh_id, data_type)
+
+            if events_written[key] >= chunksize:
+                open_next_event_file(sdh_id, data_type)
+
+            waveform = rng.normal(
+                mean_charge[data_type], 1.0, size=(1, n_pixels, 40)
+            ).astype(np.float32)
+
+            open_files[key].write_message(
+                DL0_Telescope.Event(
+                    event_id=event_id,
+                    tel_id=camera_configuration.tel_id,
+                    event_type=event_types[data_type],
+                    event_time_s=int(time_s),
+                    event_time_qns=int(time_qns),
+                    # identified as signal, low gain stored, high gain stored
+                    pixel_status=numpy_to_any_array(
+                        np.full(n_pixels, 0b00001101, dtype=np.uint8)
+                    ),
+                    waveform=numpy_to_any_array(convert_waveform(waveform)),
+                    num_channels=1,
+                    num_samples=40,
+                    num_pixels_survived=n_pixels,
+                )
+            )
+            events_written[key] += 1
+
+            time = time + 0.001 * u.s
+
+    for f in open_files.values():
+        f.close()
+
+    first_ped = directory / lst_ped_pattern.format(sdh_id=0, chunk_id=0)
+    first_ff = directory / lst_ff_pattern.format(sdh_id=0, chunk_id=0)
+    return first_ff, first_ped

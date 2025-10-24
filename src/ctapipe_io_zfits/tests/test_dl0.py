@@ -1,5 +1,6 @@
 import astropy.units as u
 import numpy as np
+from ctapipe.containers import EventType
 from ctapipe.core.tool import run_tool
 from ctapipe.instrument import SubarrayDescription
 from ctapipe.io import EventSource, TableLoader
@@ -119,3 +120,36 @@ def test_pixel_status(dummy_tel_file):
             )
 
         assert n_read == 10
+
+
+def test_telescope_event_source_missing_ids(dummy_tel_file_no_ids):
+    from ctapipe_io_zfits.dl0 import ProtozfitsDL0TelescopeEventSource
+
+    first_ff_file, first_ped_file = dummy_tel_file_no_ids
+
+    assert ProtozfitsDL0TelescopeEventSource.is_compatible(first_ff_file)
+    assert ProtozfitsDL0TelescopeEventSource.is_compatible(first_ped_file)
+
+    with EventSource(first_ff_file) as source:
+        assert isinstance(source, ProtozfitsDL0TelescopeEventSource)
+
+        n_read = 0
+        for event in source:
+            assert event.count == n_read
+            assert event.dl0.tel.keys() == {1}
+            assert event.trigger.event_type == EventType.FLATFIELD
+            n_read += 1
+
+        assert n_read == 50
+
+    with EventSource(first_ped_file) as source:
+        assert isinstance(source, ProtozfitsDL0TelescopeEventSource)
+
+        n_read = 0
+        for event in source:
+            assert event.count == n_read
+            assert event.dl0.tel.keys() == {1}
+            assert event.trigger.event_type == EventType.SKY_PEDESTAL
+            n_read += 1
+
+        assert n_read == 50

@@ -54,7 +54,7 @@ jobs:
 
           - python-version: "3.13"
             os: ubuntu-latest
-            ctapipe: "0.27.0"
+            ctapipe: "0.27.1"
 
           - python-version: "3.13"
             os: ubuntu-latest

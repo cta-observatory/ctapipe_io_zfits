@@ -46,6 +46,7 @@ def test_acada_rel1_filename_conventions():
     assert groups["sb_id"] == "2000000008"
     assert groups["obs_id"] == "2000000016"
     assert groups["chunk"] == "9"
+    assert groups["extra_suffix"] == ""
 
     path = f"foo/bar/{name}"
     file_info = get_file_info(path, convention="acada_rel1")
@@ -54,6 +55,9 @@ def test_acada_rel1_filename_conventions():
     assert file_info.sb_id == 2000000008
     assert file_info.obs_id == 2000000016
     assert file_info.chunk == 9
+    assert file_info.extra_suffix == ""
+
+    assert acada["template"](file_info) == name
 
 
 @pytest.mark.parametrize("data_type", ["", "_TEL_SHOWER", "_MUON"])
@@ -74,6 +78,7 @@ def test_acada_dpps_icd_filename_conventions(data_type):
     assert groups["sb_id"] == "0000000000000000123"
     assert groups["obs_id"] == "0000000000000000456"
     assert groups["chunk"] == "000"
+    assert groups["extra_suffix"] == ""
 
     path = f"foo/bar/{filename}"
     file_info = get_file_info(path, convention="acada_dpps_icd")
@@ -85,6 +90,9 @@ def test_acada_dpps_icd_filename_conventions(data_type):
     assert file_info.sb_id_padding == 19
     assert file_info.obs_id_padding == 19
     assert file_info.chunk_padding == 3
+    assert file_info.extra_suffix == ""
+
+    assert acada["template"](file_info) == filename
 
 
 @pytest.mark.parametrize("data_type", [None, "CALIB"])
@@ -116,6 +124,27 @@ def test_acada_dpps_icd_filename_conventions_missing_ids(data_type):
     assert file_info.sb_id is None
     assert file_info.obs_id is None
     assert file_info.chunk == 0
-    assert file_info.sb_id_padding is None
-    assert file_info.obs_id_padding is None
+    assert file_info.sb_id_padding == 0
+    assert file_info.obs_id_padding == 0
     assert file_info.chunk_padding == 3
+
+
+@pytest.mark.parametrize(
+    ("convention", "filename"),
+    [
+        (
+            "acada_dpps_icd",
+            "TEL001_SDH001_20230802T021531_SBID123_OBSID456_CHUNK000_foo_bar_baz.fits.fz",
+        ),
+        (
+            "acada_rel1",
+            "Tel001_SDH_3001_20231003T204445_sbid2000000008_obid2000000016_9_foo_bar_baz.fits.fz",
+        ),
+    ],
+)
+def test_extra_suffix(convention, filename):
+    from ctapipe_io_zfits.multifile import filename_conventions, get_file_info
+
+    info = get_file_info(filename, convention)
+    assert info.extra_suffix == "_foo_bar_baz"
+    assert filename_conventions[convention]["template"](info) == filename

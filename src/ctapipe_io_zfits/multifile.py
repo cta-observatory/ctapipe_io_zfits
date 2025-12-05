@@ -37,10 +37,11 @@ class FileInfo:
     sb_id_padding: int = 0
     obs_id_padding: int = 0
     chunk_padding: int = 0
+    extra_suffix: str = ""
 
 
 def acada_rel1_filename(info):
-    template = "Tel{tel_id:03d}_{data_source}_{timestamp}_sbid{sb_id:0{sb_id_padding}d}_obid{obs_id:0{obs_id_padding}d}_{chunk:0{chunk_padding}d}.fits.fz"  # noqa
+    template = "Tel{tel_id:03d}_{data_source}_{timestamp}_sbid{sb_id:0{sb_id_padding}d}_obid{obs_id:0{obs_id_padding}d}_{chunk:0{chunk_padding}d}{extra_suffix}.fits.fz"  # noqa
     return template.format(**asdict(info))
 
 
@@ -54,7 +55,7 @@ def acada_dpps_icd_filename(info):
     if info.data_type is not None:
         name += f"_{info.data_type}"
 
-    name += f"_CHUNK{info.chunk:0{info.chunk_padding}d}.fits.fz"
+    name += f"_CHUNK{info.chunk:0{info.chunk_padding}d}{info.extra_suffix}.fits.fz"
     return name
 
 
@@ -62,14 +63,14 @@ filename_conventions = {
     # Tel001_SDH_3001_20231003T204445_sbid2000000008_obid2000000016_9.fits.fz
     "acada_rel1": {
         "re": re.compile(
-            r"Tel(?P<tel_id>\d+)_(?P<data_source>SDH_\d+)_(?P<timestamp>\d{8}T\d{6})_sbid(?P<sb_id>\d+)_obid(?P<obs_id>\d+)_(?P<chunk>\d+)\.fits\.fz"  # noqa
+            r"Tel(?P<tel_id>\d+)_(?P<data_source>SDH_\d+)_(?P<timestamp>\d{8}T\d{6})_sbid(?P<sb_id>\d+)_obid(?P<obs_id>\d+)_(?P<chunk>\d+)(?P<extra_suffix>.*)\.fits\.fz$"  # noqa
         ),
         "template": acada_rel1_filename,
     },
     "acada_dpps_icd": {
         # TEL001_SDH0001_20231013T220427_SBID0000000002000000013_OBSID0000000002000000027_CHUNK000.fits.fz
         "re": re.compile(
-            r"TEL(?P<tel_id>\d+)_(?P<data_source>SDH\d+)_(?P<timestamp>\d{8}T\d{6})(?:_SBID(?P<sb_id>\d+))?(?:_OBSID(?P<obs_id>\d+))?(:?_(?P<data_type>[a-zA-Z0-9_]+))?_CHUNK(?P<chunk>\d+)\.fits\.fz"  # noqa
+            r"TEL(?P<tel_id>\d+)_(?P<data_source>SDH\d+)_(?P<timestamp>\d{8}T\d{6})(?:_SBID(?P<sb_id>\d+))?(?:_OBSID(?P<obs_id>\d+))?(:?_(?P<data_type>[a-zA-Z0-9_]+))?_CHUNK(?P<chunk>\d+)(?P<extra_suffix>.*)\.fits\.fz$"  # noqa
         ),
         "template": acada_dpps_icd_filename,
     },
@@ -98,8 +99,8 @@ def get_file_info(path, convention):
     obs_id = optional_int(groups["obs_id"])
     chunk = int(groups["chunk"])
 
-    sb_id_padding = len(groups["sb_id"]) if groups["sb_id"] is not None else None
-    obs_id_padding = len(groups["obs_id"]) if groups["obs_id"] is not None else None
+    sb_id_padding = len(groups["sb_id"]) if groups["sb_id"] is not None else 0
+    obs_id_padding = len(groups["obs_id"]) if groups["obs_id"] is not None else 0
     chunk_padding = len(groups["chunk"])
 
     return FileInfo(
@@ -113,6 +114,7 @@ def get_file_info(path, convention):
         sb_id_padding=sb_id_padding,
         obs_id_padding=obs_id_padding,
         chunk_padding=chunk_padding,
+        extra_suffix=groups["extra_suffix"],
     )
 
 

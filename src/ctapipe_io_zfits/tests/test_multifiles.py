@@ -1,3 +1,5 @@
+import shutil
+
 import pytest
 from ctapipe.core import Provenance
 
@@ -148,3 +150,37 @@ def test_extra_suffix(convention, filename):
     info = get_file_info(filename, convention)
     assert info.extra_suffix == "_foo_bar_baz"
     assert filename_conventions[convention]["template"](info) == filename
+
+
+@pytest.mark.parametrize("ignore_timestamp", [True, False])
+def test_ignore_timestamps(ignore_timestamp, dummy_tel_file, dl0_base, tmp_path):
+    from ctapipe_io_zfits.multifile import MultiFiles, get_file_info, get_file_name
+
+    path = dummy_tel_file
+    convention = "acada_dpps_icd"
+    info = get_file_info(path, convention=convention)
+    info.timestamp = "*"
+    info.data_source = "*"
+    pattern = get_file_name(info, convention=convention)
+
+    # simulate files where parallel streams have slightly different timestamps
+    for f in path.parent.glob(pattern):
+        info = get_file_info(f, convention=convention)
+
+        # change timestamps of two of the streams
+        if info.data_source in {"SDH001", "SDH003"}:
+            info.timestamp = info.timestamp[:-1] + "0"
+
+        new_name = get_file_name(info, convention=convention)
+        new_path = tmp_path / new_name
+        shutil.copy2(f, new_path)
+
+        if info.data_source == "SDH000":
+            path = new_path
+
+    Provenance().start_activity("test_ignore_timestamps")
+    with MultiFiles(path, ignore_timestamp=ignore_timestamp) as mf:
+        if ignore_timestamp:
+            assert mf.n_open_files == 4
+        else:
+            assert mf.n_open_files == 2

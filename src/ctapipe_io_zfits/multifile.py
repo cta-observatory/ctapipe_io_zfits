@@ -118,6 +118,10 @@ def get_file_info(path, convention):
     )
 
 
+def get_file_name(info, convention):
+    return filename_conventions[convention]["template"](info)
+
+
 class MultiFiles(Component):
     """Open data sources in parallel and iterate over events in order."""
 
@@ -137,6 +141,11 @@ class MultiFiles(Component):
     filename_convention = CaselessStrEnum(
         values=list(filename_conventions.keys()),
         default_value="acada_dpps_icd",
+    ).tag(config=True)
+
+    ignore_timestamp = Bool(
+        default_value=True,
+        help="If True, do not require parallel streams to have identical timestamps",
     ).tag(config=True)
 
     pure_protobuf = Bool(
@@ -169,6 +178,8 @@ class MultiFiles(Component):
         # figure out how many data sources we have:
         pattern_info = copy(file_info)
         pattern_info.data_source = "*"
+        if self.ignore_timestamp:
+            pattern_info.timestamp = "*"
         data_source_pattern = self.filename_template(pattern_info)
 
         self.log.debug(
@@ -223,6 +234,8 @@ class MultiFiles(Component):
         next_info = copy(self._first_file_info)
         next_info.data_source = data_source
         next_info.chunk = chunk
+        if self.ignore_timestamp:
+            next_info.timestamp = "*"
         pattern = self.filename_template(next_info)
 
         try:

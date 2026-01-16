@@ -34,6 +34,7 @@ jobs:
           extra_args: --files $(git diff origin/main --name-only)
 
   tests:
+    continue-on-error: ${{ matrix.ctapipe-ref == 'main' }}
     if: >
       github.event_name != 'schedule' ||
       (matrix.python-version == '3.13' &&

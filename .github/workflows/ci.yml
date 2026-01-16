@@ -10,6 +10,8 @@ on:
       - '**'
   pull_request:
 
+  schedule:
+    - cron: '0 2 * * *'
 
 env:
   NUMBA_NUM_THREADS: 1
@@ -32,6 +34,10 @@ jobs:
           extra_args: --files $(git diff origin/main --name-only)
 
   tests:
+    if: >
+      github.event_name != 'schedule' ||
+      (matrix.python-version == '3.13' &&
+      matrix.ctapipe-ref == 'main')
     strategy:
       matrix:
         include:

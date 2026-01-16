@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ctapipe_io_zfits"
 
-description = "ctapipe io plugin for reading data in zfits file (ACADA Rel 1 DL0, CTAO R1v1)"
+description = "ctapipe io plugin for reading data in DL0 zfits files"
 readme = "README.md"
 license = "BSD-3-Clause"
 authors = [

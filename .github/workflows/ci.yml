@@ -64,6 +64,10 @@ jobs:
             os: ubuntu-latest
             ctapipe: "0.29.0"
 
+          - python-version: "3.13"
+            os: ubuntu-latest
+            ctapipe-ref: "main"
+
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -89,7 +93,11 @@ jobs:
       - name: Install the package in editable mode
         run: |
           pip install --editable .[test]
-          pip install ctapipe==${{ matrix.ctapipe }}
+          if [ -n "${{ matrix.ctapipe }}" ]; then
+            pip install ctapipe==${{ matrix.ctapipe }}
+          else
+            pip install git+https://github.com/cta-observatory/ctapipe.git@${{ matrix.ctapipe-ref }}
+          fi
 
       - name: Test with pytest
         run: |

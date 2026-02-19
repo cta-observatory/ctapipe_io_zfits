@@ -136,7 +136,7 @@ def _fill_dl0_container(
 
     return DL0CameraContainer(
         pixel_status=pixel_status_reordered,
-        event_type=EventType(tel_event.event_type),
+        event_type=EventType(int(tel_event.event_type)),
         selected_gain_channel=selected_gain_channel,
         event_time=cta_high_res_to_time(
             tel_event.event_time_s,
@@ -443,6 +443,7 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
         time = cta_high_res_to_time(
             zfits_event.event_time_s, zfits_event.event_time_qns
         )
+        event_type=EventType(int(zfits_event.event_type))
         array_event = ArrayEventContainer(
             count=count,
             index=EventIndexContainer(
@@ -451,11 +452,14 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
             ),
             trigger=TriggerContainer(
                 tels_with_trigger=[self.tel_id],
-                event_type=EventType(int(zfits_event.event_type)),
+                event_type=event_type,
                 time=time,
             ),
         )
-        array_event.trigger.tel[tel_id] = TelescopeTriggerContainer(time=time)
+        array_event.trigger.tel[tel_id] = TelescopeTriggerContainer(
+            time=time,
+            event_type=event_type,
+        )
         array_event.dl0.tel[tel_id] = _fill_dl0_container(
             zfits_event,
             self._multi_file.data_stream,

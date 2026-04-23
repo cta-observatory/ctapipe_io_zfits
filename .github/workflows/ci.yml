@@ -35,28 +35,19 @@ jobs:
           extra_args: --files $(git diff origin/main --name-only)
 
   tests:
-    continue-on-error: ${{ matrix.ctapipe-ref == 'main' }}
     strategy:
       matrix:
         include:
-          - python-version: "3.13"
-            os: ubuntu-latest
-            ctapipe: "0.28.0"
-
-          - python-version: "3.12"
-            os: ubuntu-latest
-            ctapipe: "0.29.0"
-
-          - python-version: "3.14"
-            os: ubuntu-latest
-            ctapipe: "0.30.0"
-
           - python-version: "3.12"
             os: ubuntu-latest
             extra-args: ['codecov']
-            ctapipe: "0.31.0"
+            ctapipe-ref: "main"
 
           - python-version: "3.13"
+            os: ubuntu-latest
+            ctapipe-ref: "main"
+
+          - python-version: "3.14"
             os: ubuntu-latest
             ctapipe-ref: "main"
 

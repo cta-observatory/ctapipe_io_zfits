@@ -36,7 +36,7 @@ default_role = "py:obj"
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "traitlets": ("https://traitlets.readthedocs.io/en/stable/", None),
-    "ctapipe": ("https://ctapipe.readthedocs.io/en/v0.24.0/", None),
+    "ctapipe": ("https://ctapipe.readthedocs.io/en/v0.33.0/", None),
 }
 
 # -- Options for HTML output -------------------------------------------------

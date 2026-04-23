@@ -1,6 +1,6 @@
 import datetime
 from contextlib import ExitStack
-from datetime import timedelta, timezone
+from datetime import timedelta
 from zoneinfo import ZoneInfo
 
 import astropy.units as u
@@ -24,7 +24,7 @@ def evening_of_obs(time: Time, tz: ZoneInfo) -> datetime.date:
 
     Uses noon localtime in ``tz`` as a cutoff.
     """
-    dt = time.to_datetime(timezone.utc).astimezone(tz)
+    dt = time.to_datetime(datetime.UTC).astimezone(tz)
     if dt.hour < 12:
         return (dt - timedelta(days=1)).date()
 
@@ -71,10 +71,13 @@ def get_module_and_pixel_id_map(n_modules, n_pixels_module, missing_modules=None
     return module_id_map, pixel_id_map
 
 
+obs_start = Time("2025-02-04T20:45:31")
+
+
 test_configurations = [
     pytest.param(
         {
-            "obs_start": Time("2025-02-04T20:45:31"),
+            "obs_start": obs_start,
             "sb_creator_id": 2,
             "sb_id": 124,
             "obs_id": 789,
@@ -83,7 +86,7 @@ test_configurations = [
     ),
     pytest.param(
         {
-            "obs_start": Time("2025-02-04T20:45:31"),
+            "obs_start": obs_start,
             "sb_creator_id": 2,
             "sb_id": 124,
             "obs_id": 790,
@@ -93,7 +96,7 @@ test_configurations = [
     ),
     pytest.param(
         {
-            "obs_start": Time("2025-02-04T20:45:31"),
+            "obs_start": obs_start,
             "sb_creator_id": 2,
             "sb_id": 124,
             "obs_id": 791,
@@ -115,7 +118,7 @@ test_configurations = [
     pytest.param(
         {
             "tel_ids_with_data": False,
-            "obs_start": Time("2025-02-04T20:45:31"),
+            "obs_start": obs_start,
             "sb_creator_id": 2,
             "sb_id": 125,
             "obs_id": 126,
@@ -124,8 +127,18 @@ test_configurations = [
     ),
     pytest.param(
         {
+            "busy_trigger": True,
+            "obs_start": obs_start,
+            "sb_creator_id": 2,
+            "sb_id": 127,
+            "obs_id": 128,
+        },
+        id="busy_trigger",
+    ),
+    pytest.param(
+        {
             "all_chunks": True,
-            "obs_start": Time("2025-02-04T20:45:31"),
+            "obs_start": obs_start,
             "sb_creator_id": 2,
             "sb_id": 126,
             "obs_id": 127,
@@ -155,10 +168,10 @@ def dummy_dl0(dl0_base, request):
     for directory in (trigger_dir, lst_event_dir):
         directory.mkdir(exist_ok=True, parents=True)
 
-    subarray_id = 1
+    subarray_id = 2 if config.get("busy_trigger") else 1
     sdh_ids = (0, 1, 2, 3)
 
-    obs_start_path_string = f"{obs_start.to_datetime(timezone.utc):%Y%m%dT%H%M%S}"
+    obs_start_path_string = f"{obs_start.to_datetime(datetime.UTC):%Y%m%dT%H%M%S}"
     filename = f"SUB{subarray_id:03d}_SWAT001_{obs_start_path_string}_SBID{sb_id:019d}_OBSID{obs_id:019d}_SUBARRAY_CHUNK000.fits.fz"  # noqa
 
     # sdh_id and chunk_id will be filled later -> double {{}}
@@ -273,7 +286,9 @@ def dummy_dl0(dl0_base, request):
                     event_time_s=int(time_s),
                     event_time_qns=int(time_qns),
                     trigger_ids=numpy_to_any_array(np.array([event_id])),
-                    tel_ids_with_trigger=numpy_to_any_array(np.array([1])),
+                    tel_ids_with_trigger=numpy_to_any_array(
+                        np.array([1, 2] if config.get("busy_trigger") else [1])
+                    ),
                     **kwargs,
                 )
             )
@@ -354,7 +369,7 @@ def dummy_tel_file_no_ids(dl0_base):
     sdh_ids = (0, 1, 2, 3)
 
     # sdh_id and chunk_id will be filled later -> double {{}}
-    obs_start_path_string = f"{obs_start.to_datetime(timezone.utc):%Y%m%dT%H%M%S}"
+    obs_start_path_string = f"{obs_start.to_datetime(datetime.UTC):%Y%m%dT%H%M%S}"
     # ped was having no info, ff had "CALIB" but no ids
     lst_ped_pattern = f"TEL001_SDH{{sdh_id:03d}}_{obs_start_path_string}_CHUNK{{chunk_id:03d}}.fits.fz"  # noqa
     lst_ff_pattern = f"TEL001_SDH{{sdh_id:03d}}_{obs_start_path_string}_CALIB_CHUNK{{chunk_id:03d}}.fits.fz"  # noqa

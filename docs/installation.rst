@@ -1,6 +1,8 @@
 Installation
 ============
 
+Requires Python 3.12 or newer and ctapipe 0.33.0 or newer.
+
 User Installation
 -----------------
 

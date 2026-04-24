@@ -10,7 +10,7 @@ from astropy.time import Time
 from ctapipe.containers import EventType
 from protozfits import DL0v1_Subarray_pb2 as DL0_Subarray
 from protozfits import DL0v1_Telescope_pb2 as DL0_Telescope
-from protozfits import ProtobufZOFits
+from protozfits import FlatProtobufZOFits
 from protozfits.anyarray import numpy_to_any_array
 
 from ctapipe_io_zfits.time import time_to_cta_high_res
@@ -178,7 +178,7 @@ def dummy_dl0(dl0_base, request):
         path = lst_event_dir / lst_event_pattern.format(
             sdh_id=sdh_id, chunk_id=chunk_id
         )
-        f = ctx.enter_context(ProtobufZOFits(**proto_kwargs))
+        f = ctx.enter_context(FlatProtobufZOFits(**proto_kwargs))
         f.open(str(path))
         f.move_to_new_table("DataStream")
         f.write_message(lst_data_stream)
@@ -194,7 +194,7 @@ def dummy_dl0(dl0_base, request):
         return ((waveform + offset) * scale).astype(np.uint16)
 
     with ctx:
-        trigger_file = ctx.enter_context(ProtobufZOFits(**proto_kwargs))
+        trigger_file = ctx.enter_context(FlatProtobufZOFits(**proto_kwargs))
         trigger_file.open(str(trigger_path))
         trigger_file.move_to_new_table("DataStream")
         trigger_file.write_message(subarray_data_stream)
@@ -354,7 +354,7 @@ def dummy_tel_file_no_ids(dl0_base):
         path = directory / pattern.format(sdh_id=sdh_id, chunk_id=chunk_id)
 
         print(f"Opening path: {path} for {data_type=}, {chunk_id=}")
-        f = ctx.enter_context(ProtobufZOFits(**proto_kwargs))
+        f = ctx.enter_context(FlatProtobufZOFits(**proto_kwargs))
         f.open(str(path))
         f.move_to_new_table("DataStream")
         f.write_message(data_stream)

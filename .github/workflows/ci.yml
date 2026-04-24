@@ -35,10 +35,6 @@ jobs:
 
   tests:
     continue-on-error: ${{ matrix.ctapipe-ref == 'main' }}
-    if: >
-      github.event_name != 'schedule' ||
-      (matrix.python-version == '3.13' &&
-      matrix.ctapipe-ref == 'main')
     strategy:
       matrix:
         include:
@@ -100,10 +96,10 @@ jobs:
       - name: Install the package in editable mode
         run: |
           pip install --editable .[test]
-          if [ -n "${{ matrix.ctapipe }}" ]; then
-            pip install ctapipe==${{ matrix.ctapipe }}
-          else
+          if [ -n "${{ matrix.ctapipe-ref }}" ]; then
             pip install git+https://github.com/cta-observatory/ctapipe.git@${{ matrix.ctapipe-ref }}
+          else
+            pip install ctapipe==${{ matrix.ctapipe }}
           fi
 
       - name: Test with pytest

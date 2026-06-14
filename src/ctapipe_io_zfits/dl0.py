@@ -3,10 +3,10 @@
 import logging
 from contextlib import ExitStack
 
-import ctapipe
 import numpy as np
 from ctapipe.containers import (
     ArrayEventContainer,
+    CameraCalibrationContainer,
     DL0CameraContainer,
     EventIndexContainer,
     EventType,
@@ -20,7 +20,6 @@ from ctapipe.core.traits import Bool, Integer
 from ctapipe.instrument import SubarrayDescription
 from ctapipe.io import DataLevel, EventSource
 from ctapipe.io.simteleventsource import GainChannel
-from packaging.version import Version
 from protozfits import File
 
 from .instrument import build_subarray_description, get_array_elements_by_id
@@ -35,11 +34,6 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 ARRAY_ELEMENTS = get_array_elements_by_id()
-
-
-CTAPIPE_GE_0_27 = Version(ctapipe.__version__) >= Version("0.27.0a0")
-if CTAPIPE_GE_0_27:
-    from ctapipe.containers import CameraCalibrationContainer
 
 
 def _is_compatible(input_url, extname, allowed_protos):
@@ -343,10 +337,8 @@ class ProtozfitsDL0EventSource(EventSource):
                 )
                 array_event.dl0.tel[tel_id] = dl0_tel
 
-                # fill minimum calibration info to make tool work.
-                if CTAPIPE_GE_0_27:
-                    n_channels = camera.readout.n_channels
-                    _fill_calibration_container(array_event, tel_id, n_channels)
+                n_channels = camera.readout.n_channels
+                _fill_calibration_container(array_event, tel_id, n_channels)
 
             yield array_event
 
@@ -464,9 +456,7 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
             ignore_samples_start=self.ignore_samples_start,
             ignore_samples_end=self.ignore_samples_end,
         )
-        # fill minimum calibration info to make tool work.
-        if CTAPIPE_GE_0_27:
-            _fill_calibration_container(array_event, tel_id, camera.readout.n_channels)
+        _fill_calibration_container(array_event, tel_id, camera.readout.n_channels)
         return array_event
 
     def _generator(self):

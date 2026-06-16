@@ -60,6 +60,15 @@ def acada_dpps_icd_filename(info):
     return name
 
 
+def lst_filename(file_info):
+    i = file_info
+    return (
+        f"LST-{i.tel_id:d}.{i.data_source}"
+        f".Run{i.obs_id}.{i.chunk:04d}"
+        f"{i.extra_suffix}.fits.fz"
+    )
+
+
 filename_conventions = {
     # Tel001_SDH_3001_20231003T204445_sbid2000000008_obid2000000016_9.fits.fz
     "acada_rel1": {
@@ -74,6 +83,12 @@ filename_conventions = {
             r"TEL(?P<tel_id>\d+)_(?P<data_source>SDH\d+)_(?P<timestamp>\d{8}T\d{6})(?:_SBID(?P<sb_id>\d+))?(?:_OBSID(?P<obs_id>\d+))?(:?_(?P<data_type>[a-zA-Z0-9_]+))?_CHUNK(?P<chunk>\d+)(?P<extra_suffix>.*)\.fits\.fz$"  # noqa
         ),
         "template": acada_dpps_icd_filename,
+    },
+    "lst": {
+        "re": re.compile(
+            r"LST-(?P<tel_id>\d+)\.(?P<data_source>\d+)\.Run(?P<obs_id>\d+)\.(?P<chunk>\d+)(?P<extra_suffix>.*)\.fits\.fz",
+        ),
+        "template": lst_filename,
     },
 }
 

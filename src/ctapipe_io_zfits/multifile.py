@@ -8,8 +8,9 @@ from queue import Empty, PriorityQueue
 from typing import Any
 
 from ctapipe.core import Component, Provenance
-from ctapipe.core.traits import Bool, CaselessStrEnum
+from ctapipe.core.traits import Bool, Unicode
 from protozfits import File
+from traitlets import TraitError, validate
 
 __all__ = [
     "MultiFiles",
@@ -29,10 +30,10 @@ class NextEvent:
 class FileInfo:
     tel_id: int
     data_source: str
-    timestamp: str
-    sb_id: int
     obs_id: int
-    chunk: int
+    sb_id: int | None = None
+    chunk: int | None = None
+    timestamp: str | None = None
     data_type: str = ""
     sb_id_padding: int = 0
     obs_id_padding: int = 0
@@ -95,18 +96,19 @@ def get_file_info(path, convention):
         )
 
     groups = m.groupdict()
-    sb_id = optional_int(groups["sb_id"])
     obs_id = optional_int(groups["obs_id"])
-    chunk = int(groups["chunk"])
-
-    sb_id_padding = len(groups["sb_id"]) if groups["sb_id"] is not None else 0
     obs_id_padding = len(groups["obs_id"]) if groups["obs_id"] is not None else 0
+
+    chunk = int(groups["chunk"])
     chunk_padding = len(groups["chunk"])
+
+    sb_id = optional_int(groups.get("sb_id"))
+    sb_id_padding = len(groups["sb_id"]) if sb_id is not None else 0
 
     return FileInfo(
         tel_id=int(groups["tel_id"]),
         data_source=groups["data_source"],
-        timestamp=groups["timestamp"],
+        timestamp=groups.get("timestamp"),
         sb_id=sb_id,
         obs_id=obs_id,
         chunk=chunk,
@@ -138,8 +140,7 @@ class MultiFiles(Component):
         help="If true, open subsequent chunks when current one is exhausted",
     ).tag(config=True)
 
-    filename_convention = CaselessStrEnum(
-        values=list(filename_conventions.keys()),
+    filename_convention = Unicode(
         default_value="acada_dpps_icd",
     ).tag(config=True)
 
@@ -211,6 +212,15 @@ class MultiFiles(Component):
 
         for data_source in self.data_sources:
             self._load_next_chunk(data_source)
+
+    @validate("filename_convention")
+    def _valid_filename_convention(self, proposal):
+        value = proposal["value"]
+        known = set(filename_conventions.keys())
+        if value not in known:
+            msg = f"filename_convention {value} not in known conventions: {known}"
+            raise TraitError(msg)
+        return value
 
     @property
     def n_open_files(self):

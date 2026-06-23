@@ -71,27 +71,42 @@ def get_module_and_pixel_id_map(n_modules, n_pixels_module, missing_modules=None
     return module_id_map, pixel_id_map
 
 
-# we parametrize the dummy dl0 for a couple of different scenarios.
-# Tests using this fixture will be run under all scenarios automatically
-@pytest.fixture(
-    scope="session",
-    params=[
+test_configurations = [
+    pytest.param(
         {
-            "missing_modules": True,
-            "obs_start": Time("2023-08-02T02:15:31"),
-            "sb_creator_id": 2,
-            "sb_id": 123,
-            "obs_id": 456,
-        },
-        {
-            "missing_modules": False,
             "obs_start": Time("2025-02-04T20:45:31"),
             "sb_creator_id": 2,
             "sb_id": 124,
             "obs_id": 789,
         },
-    ],
-)
+        id="standard",
+    ),
+    pytest.param(
+        {
+            "missing_modules": [50, 200],
+            "obs_start": Time("2023-08-02T02:15:31"),
+            "sb_creator_id": 2,
+            "sb_id": 123,
+            "obs_id": 456,
+        },
+        id="missing-modules",
+    ),
+    pytest.param(
+        {
+            "tel_ids_with_data": False,
+            "obs_start": Time("2025-02-04T20:45:31"),
+            "sb_creator_id": 2,
+            "sb_id": 125,
+            "obs_id": 126,
+        },
+        id="no_tel_ids_with_data",
+    ),
+]
+
+
+# we parametrize the dummy dl0 for a couple of different scenarios.
+# Tests using this fixture will be run under all scenarios automatically
+@pytest.fixture(scope="session", params=test_configurations)
 def dummy_dl0(dl0_base, request):
     rng = np.random.default_rng(0)
 
@@ -136,7 +151,7 @@ def dummy_dl0(dl0_base, request):
         sb_creator_id=sb_creator_id,
     )
 
-    missing_modules = [50, 200] if config["missing_modules"] else None
+    missing_modules = config.get("missing_modules")
     module_id_map, pixel_id_map = get_module_and_pixel_id_map(
         n_modules=265, n_pixels_module=7, missing_modules=missing_modules
     )
@@ -207,6 +222,11 @@ def dummy_dl0(dl0_base, request):
             event_id = i + 1
             time_s, time_qns = time_to_cta_high_res(time)
 
+            # simulate old data without tel_ids_with_data if asked
+            kwargs = {}
+            if config.get("tel_ids_with_data", True):
+                kwargs["tel_ids_with_data"] = numpy_to_any_array(np.array([1]))
+
             trigger_file.write_message(
                 DL0_Subarray.Event(
                     event_id=event_id,
@@ -217,7 +237,7 @@ def dummy_dl0(dl0_base, request):
                     event_time_qns=int(time_qns),
                     trigger_ids=numpy_to_any_array(np.array([event_id])),
                     tel_ids_with_trigger=numpy_to_any_array(np.array([1])),
-                    tel_ids_with_data=numpy_to_any_array(np.array([1])),
+                    **kwargs,
                 )
             )
 

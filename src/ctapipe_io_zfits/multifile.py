@@ -60,12 +60,11 @@ def acada_dpps_icd_filename(info):
     return name
 
 
-def lst_filename(file_info):
-    i = file_info
+def lst_filename(file_info: FileInfo):
     return (
-        f"LST-{i.tel_id:d}.{i.data_source}"
-        f".Run{i.obs_id}.{i.chunk:04d}"
-        f"{i.extra_suffix}.fits.fz"
+        f"LST-{file_info.tel_id:d}.{file_info.data_source}"
+        f".Run{file_info.obs_id}.{file_info.chunk:04d}"
+        f"{file_info.extra_suffix}.fits.fz"
     )
 
 

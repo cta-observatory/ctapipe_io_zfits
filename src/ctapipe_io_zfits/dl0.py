@@ -313,7 +313,12 @@ class ProtozfitsDL0EventSource(EventSource):
                 ),
             )
 
-            for tel_id in subarray_trigger.tel_ids_with_data:
+            tel_ids = subarray_trigger.tel_ids_with_data
+            # older ACADA test campaign data does not have tel_ids_with_data, which was introduced in 2025
+            if tel_ids is None:
+                tel_ids = subarray_trigger.tel_ids_with_trigger
+
+            for tel_id in tel_ids:
                 tel_file = self._telescope_files[tel_id]
                 camera = self.subarray.tel[tel_id].camera
 
@@ -435,7 +440,7 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
         time = cta_high_res_to_time(
             zfits_event.event_time_s, zfits_event.event_time_qns
         )
-        event_type=EventType(int(zfits_event.event_type))
+        event_type = EventType(int(zfits_event.event_type))
         array_event = ArrayEventContainer(
             count=count,
             index=EventIndexContainer(

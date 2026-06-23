@@ -8,8 +8,9 @@ from queue import Empty, PriorityQueue
 from typing import Any
 
 from ctapipe.core import Component, Provenance
-from ctapipe.core.traits import Bool, CaselessStrEnum
+from ctapipe.core.traits import Bool, Unicode
 from protozfits import File
+from traitlets import TraitError, validate
 
 __all__ = [
     "MultiFiles",
@@ -29,10 +30,10 @@ class NextEvent:
 class FileInfo:
     tel_id: int
     data_source: str
-    timestamp: str
-    sb_id: int
     obs_id: int
-    chunk: int
+    sb_id: int | None = None
+    chunk: int | None = None
+    timestamp: str | None = None
     data_type: str = ""
     sb_id_padding: int = 0
     obs_id_padding: int = 0
@@ -59,6 +60,14 @@ def acada_dpps_icd_filename(info):
     return name
 
 
+def lst_filename(file_info: FileInfo):
+    return (
+        f"LST-{file_info.tel_id:d}.{file_info.data_source}"
+        f".Run{file_info.obs_id}.{file_info.chunk:04d}"
+        f"{file_info.extra_suffix}.fits.fz"
+    )
+
+
 filename_conventions = {
     # Tel001_SDH_3001_20231003T204445_sbid2000000008_obid2000000016_9.fits.fz
     "acada_rel1": {
@@ -73,6 +82,12 @@ filename_conventions = {
             r"TEL(?P<tel_id>\d+)_(?P<data_source>SDH\d+)_(?P<timestamp>\d{8}T\d{6})(?:_SBID(?P<sb_id>\d+))?(?:_OBSID(?P<obs_id>\d+))?(:?_(?P<data_type>[a-zA-Z0-9_]+))?_CHUNK(?P<chunk>\d+)(?P<extra_suffix>.*)\.fits\.fz$"  # noqa
         ),
         "template": acada_dpps_icd_filename,
+    },
+    "lst": {
+        "re": re.compile(
+            r"LST-(?P<tel_id>\d+)\.(?P<data_source>\d+)\.Run(?P<obs_id>\d+)\.(?P<chunk>\d+)(?P<extra_suffix>.*)\.fits\.fz",
+        ),
+        "template": lst_filename,
     },
 }
 
@@ -95,18 +110,19 @@ def get_file_info(path, convention):
         )
 
     groups = m.groupdict()
-    sb_id = optional_int(groups["sb_id"])
     obs_id = optional_int(groups["obs_id"])
-    chunk = int(groups["chunk"])
-
-    sb_id_padding = len(groups["sb_id"]) if groups["sb_id"] is not None else 0
     obs_id_padding = len(groups["obs_id"]) if groups["obs_id"] is not None else 0
+
+    chunk = int(groups["chunk"])
     chunk_padding = len(groups["chunk"])
+
+    sb_id = optional_int(groups.get("sb_id"))
+    sb_id_padding = len(groups["sb_id"]) if sb_id is not None else 0
 
     return FileInfo(
         tel_id=int(groups["tel_id"]),
         data_source=groups["data_source"],
-        timestamp=groups["timestamp"],
+        timestamp=groups.get("timestamp"),
         sb_id=sb_id,
         obs_id=obs_id,
         chunk=chunk,
@@ -138,8 +154,7 @@ class MultiFiles(Component):
         help="If true, open subsequent chunks when current one is exhausted",
     ).tag(config=True)
 
-    filename_convention = CaselessStrEnum(
-        values=list(filename_conventions.keys()),
+    filename_convention = Unicode(
         default_value="acada_dpps_icd",
     ).tag(config=True)
 
@@ -211,6 +226,15 @@ class MultiFiles(Component):
 
         for data_source in self.data_sources:
             self._load_next_chunk(data_source)
+
+    @validate("filename_convention")
+    def _valid_filename_convention(self, proposal):
+        value = proposal["value"]
+        known = set(filename_conventions.keys())
+        if value not in known:
+            msg = f"filename_convention {value} not in known conventions: {known}"
+            raise TraitError(msg)
+        return value
 
     @property
     def n_open_files(self):

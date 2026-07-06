@@ -82,6 +82,7 @@ def _fill_dl0_container(
     camera_geometry,
     ignore_samples_start=0,
     ignore_samples_end=0,
+    dvr_fill_value=0.0,
 ):
     n_channels = tel_event.num_channels
     n_pixels_stored = tel_event.num_pixels_survived
@@ -104,7 +105,9 @@ def _fill_dl0_container(
     n_pixels_nominal = camera_geometry.n_pixels
 
     # fill not readout pixels with 0, reorder pixels
-    waveform = np.zeros((n_channels, n_pixels_nominal, n_samples), dtype=np.float32)
+    waveform = np.full(
+        (n_channels, n_pixels_nominal, n_samples), dvr_fill_value, dtype=np.float32
+    )
     waveform[:, camera_config.pixel_id_map[pixel_stored]] = zfits_waveform
 
     if ignore_samples_start != 0 or ignore_samples_end != 0:
@@ -152,6 +155,10 @@ class ProtozfitsDL0EventSource(EventSource):
 
     subarray_id = Integer(default_value=1).tag(config=True)
     warn_missing = Bool(default_value=True).tag(config=True)
+    dvr_fill_nan = Bool(
+        default_value=False,
+        help="If true, fill nan for dvred waveforms, otherwise 0.0",
+    ).tag(config=True)
 
     def __init__(self, input_url=None, **kwargs):
         if input_url is not None:
@@ -199,6 +206,7 @@ class ProtozfitsDL0EventSource(EventSource):
 
         self._open_telescope_files()
         self._tel_event_buffer = {}
+        self._dvr_fill_value = np.float32(np.nan if self.dvr_fill_nan else 0.0)
 
     def _get_tel_events_directory(self, tel_id):
         tel_name = ARRAY_ELEMENTS[tel_id]["name"]
@@ -331,6 +339,7 @@ class ProtozfitsDL0EventSource(EventSource):
                     tel_file.data_stream,
                     tel_file.camera_config,
                     camera.geometry,
+                    dvr_fill_value=self._dvr_fill_value,
                 )
                 # FIXME: This should be the trigger time, which is not identical
                 # in the data model to the event time, which is the start-of-readout.
@@ -369,6 +378,10 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
     subarray_id = Integer(default_value=1).tag(config=True)
     ignore_samples_start = Integer(default_value=0).tag(config=True)
     ignore_samples_end = Integer(default_value=0).tag(config=True)
+    dvr_fill_nan = Bool(
+        default_value=False,
+        help="If true, fill nan for dvred waveforms, otherwise 0.0",
+    ).tag(config=True)
 
     @classmethod
     def is_compatible(cls, input_url):  # noqa: D102
@@ -404,6 +417,8 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
         self._scheduling_blocks = {
             self.sb_id: SchedulingBlockContainer(sb_id=np.uint64(self.sb_id))
         }
+
+        self._dvr_fill_value = np.float32(np.nan if self.dvr_fill_nan else 0.0)
 
     def close(self):  # noqa: D102
         self._exit_stack.__exit__(None, None, None)
@@ -464,6 +479,7 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
             camera.geometry,
             ignore_samples_start=self.ignore_samples_start,
             ignore_samples_end=self.ignore_samples_end,
+            dvr_fill_value=self._dvr_fill_value,
         )
         _fill_calibration_container(array_event, tel_id, camera.readout.n_channels)
         return array_event

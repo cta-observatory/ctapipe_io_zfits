@@ -150,7 +150,7 @@ class MultiFiles(Component):
     ).tag(config=True)
 
     all_chunks = Bool(
-        default_value=True,
+        default_value=False,
         help="If true, open subsequent chunks when current one is exhausted",
     ).tag(config=True)
 

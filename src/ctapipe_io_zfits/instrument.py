@@ -1,6 +1,7 @@
 """Definitionas of the instrument configuration."""
 
 import json
+import logging
 from functools import cache
 from importlib.resources import as_file, files
 
@@ -33,6 +34,8 @@ OPTICS = {
         mirror_area=u.Quantity(386.73, u.m**2),
     )
 }
+
+LOG = logging.getLogger(__name__)
 
 
 __all__ = [
@@ -117,8 +120,16 @@ def get_reference_locations(positions):
     )
 
 
-def build_subarray_description(subarray_id):
+def build_subarray_description(subarray_id, log=LOG):
     """Create a SubarrayDescription from the subarray_id."""
+    if hasattr(SubarrayDescription, "from_service_data"):
+        try:
+            return SubarrayDescription.from_service_data(subarray_id)
+        except FileNotFoundError:
+            log.warning(
+                "Could not build subarray description from service data, falling back to bundled definitions."
+            )
+
     try:
         subarray = get_subarrays_by_id()[subarray_id]
     except KeyError:

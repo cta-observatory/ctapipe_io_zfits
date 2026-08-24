@@ -183,7 +183,7 @@ class ProtozfitsDL0EventSource(EventSource):
             self.sb_id = first_event.sb_id
             self.obs_id = first_event.obs_id
 
-        self._subarray = build_subarray_description(self.subarray_id)
+        self._subarray = build_subarray_description(self.subarray_id, log=self.log)
 
         self._observation_blocks = {
             self.obs_id: ObservationBlockContainer(

@@ -83,6 +83,16 @@ test_configurations = [
     ),
     pytest.param(
         {
+            "obs_start": Time("2025-02-04T20:45:31"),
+            "sb_creator_id": 2,
+            "sb_id": 124,
+            "obs_id": 790,
+            "pixel_time_shift": True,
+        },
+        id="pixel_time_shift",
+    ),
+    pytest.param(
+        {
             "missing_modules": [50, 200],
             "obs_start": Time("2023-08-02T02:15:31"),
             "sb_creator_id": 2,
@@ -247,6 +257,12 @@ def dummy_dl0(dl0_base, request):
             # TODO: fill actual signal into waveform, not just 0
             waveform = rng.normal(0.0, 1.0, size=(1, n_pixels, 40)).astype(np.float32)
 
+            additional_fields = {}
+            if config.get("pixel_time_shift", False):
+                time_shift = rng.normal(0, 0.5, size=(n_pixels,))
+                time_shift = np.round(100 * time_shift).astype(np.int16)
+                additional_fields["pixel_time_shift"] = numpy_to_any_array(time_shift)
+
             lst_event_files[sdh_id].write_message(
                 DL0_Telescope.Event(
                     event_id=event_id,
@@ -262,6 +278,7 @@ def dummy_dl0(dl0_base, request):
                     num_channels=1,
                     num_samples=40,
                     num_pixels_survived=n_pixels,
+                    **additional_fields,
                 )
             )
             events_written[sdh_id] += 1

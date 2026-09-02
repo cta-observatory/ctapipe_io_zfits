@@ -4,6 +4,7 @@ import logging
 from contextlib import ExitStack
 
 import numpy as np
+from ctapipe import __version__ as ctapipe_version
 from ctapipe.containers import (
     ArrayEventContainer,
     CameraCalibrationContainer,
@@ -20,6 +21,7 @@ from ctapipe.core.traits import Bool, Integer
 from ctapipe.instrument import SubarrayDescription
 from ctapipe.io import DataLevel, EventSource
 from ctapipe.io.simteleventsource import GainChannel
+from packaging.version import Version
 from protozfits import File
 
 from .instrument import build_subarray_description, get_array_elements_by_id
@@ -33,7 +35,11 @@ __all__ = [
 
 log = logging.getLogger(__name__)
 
+CTAPIPE_VERSION = Version(ctapipe_version)
+CTAPIPE_GE_0_31 = CTAPIPE_VERSION >= Version("0.31.0a0")
+
 ARRAY_ELEMENTS = get_array_elements_by_id()
+TEN_PS_TO_NS = np.float32(0.01)
 
 
 def _is_compatible(input_url, extname, allowed_protos):
@@ -96,15 +102,14 @@ def _fill_dl0_container(
 
     pixel_status = tel_event.pixel_status
     # FIXME: seems ACADA doesn't set pixels to "stored" when no DVR is applied
-    if n_pixels_stored == camera_config.num_pixels and np.all(
-        PixelStatus.get_dvr_status(pixel_status) == 0
-    ):
+    all_pixels_stored = n_pixels_stored == camera_config.num_pixels
+    if all_pixels_stored and np.all(PixelStatus.get_dvr_status(pixel_status) == 0):
         pixel_status = pixel_status | PixelStatus.DVR_1
 
     pixel_stored = PixelStatus.get_dvr_status(pixel_status) != 0
-    n_pixels_nominal = camera_geometry.n_pixels
 
     # fill not readout pixels with 0, reorder pixels
+    n_pixels_nominal = camera_geometry.n_pixels
     waveform = np.full(
         (n_channels, n_pixels_nominal, n_samples), dvr_fill_value, dtype=np.float32
     )
@@ -131,6 +136,15 @@ def _fill_dl0_container(
     else:
         selected_gain_channel = None
 
+    extra_fields = {}
+    if CTAPIPE_GE_0_31 and tel_event.pixel_time_shift is not None:
+        # pixel_time_shift is stored as int16, in 10 ps increments. Convert to ns.
+        pixel_time_shift = tel_event.pixel_time_shift.astype(np.float32) * TEN_PS_TO_NS
+        pixel_time_shift = pixel_time_shift.reshape((n_channels, n_pixels_stored))
+        pixel_time_shift_reordered = np.zeros((n_channels, n_pixels_nominal))
+        pixel_time_shift_reordered[..., camera_config.pixel_id_map] = pixel_time_shift
+        extra_fields["pixel_time_shift"] = pixel_time_shift_reordered
+
     return DL0CameraContainer(
         pixel_status=pixel_status_reordered,
         event_type=EventType(int(tel_event.event_type)),
@@ -141,6 +155,7 @@ def _fill_dl0_container(
         ),
         waveform=waveform,
         first_cell_id=tel_event.first_cell_id,
+        **extra_fields,
     )
 
 

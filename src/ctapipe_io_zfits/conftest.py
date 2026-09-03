@@ -122,6 +122,16 @@ test_configurations = [
         },
         id="no_tel_ids_with_data",
     ),
+    pytest.param(
+        {
+            "all_chunks": True,
+            "obs_start": Time("2025-02-04T20:45:31"),
+            "sb_creator_id": 2,
+            "sb_id": 126,
+            "obs_id": 127,
+        },
+        id="all_chunks",
+    ),
 ]
 
 

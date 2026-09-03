@@ -23,6 +23,8 @@ def test_multifiles(all_chunks, dummy_tel_file, dl0_base):
         else:
             assert expected_event_id == 40
 
+        assert mf.exhausted
+
     recorded_inputs = Provenance().current_activity.provenance["input"]
     # five chunks per stream
     if all_chunks:

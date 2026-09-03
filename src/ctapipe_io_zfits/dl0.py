@@ -325,6 +325,10 @@ class ProtozfitsDL0EventSource(EventSource):
         for count, subarray_trigger in enumerate(
             self._subarray_trigger_file.SubarrayEvents
         ):
+            # stop processing when all telescope event sources are exhausted
+            if all(f.exhausted for f in self._telescope_files.values()):
+                return
+
             array_event = ArrayEventContainer(
                 count=count,
                 index=EventIndexContainer(

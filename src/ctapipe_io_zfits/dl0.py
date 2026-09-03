@@ -142,7 +142,9 @@ def _fill_dl0_container(
         pixel_time_shift = tel_event.pixel_time_shift.astype(np.float32) * TEN_PS_TO_NS
         pixel_time_shift = pixel_time_shift.reshape((n_channels, n_pixels_stored))
         pixel_time_shift_reordered = np.zeros((n_channels, n_pixels_nominal))
-        pixel_time_shift_reordered[..., camera_config.pixel_id_map] = pixel_time_shift
+        pixel_time_shift_reordered[..., camera_config.pixel_id_map[pixel_stored]] = (
+            pixel_time_shift
+        )
         extra_fields["pixel_time_shift"] = pixel_time_shift_reordered
 
     return DL0CameraContainer(

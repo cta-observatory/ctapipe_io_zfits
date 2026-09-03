@@ -49,7 +49,15 @@ def test_subarray_events(dummy_dl0):
             time = time + 0.001 * u.s
 
             if CTAPIPE_GE_0_31 and dummy_dl0.get("pixel_time_shift"):
-                assert array_event.dl0.tel[1].pixel_time_shift is not None
+                pixel_time_shift = array_event.dl0.tel[1].pixel_time_shift
+                assert pixel_time_shift is not None
+
+                if dummy_dl0.get("dvr"):
+                    pixel_stored = array_event.dl0.tel[1].pixel_status != 0
+                    np.testing.assert_array_equal(
+                        pixel_time_shift[0, ~pixel_stored], 0.0
+                    )
+                    assert np.all(pixel_time_shift[0, pixel_stored] > 0.0)
 
         assert n_read == 100
 

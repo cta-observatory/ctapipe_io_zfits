@@ -192,7 +192,8 @@ class MultiFiles(Component):
 
         # figure out how many data sources we have:
         pattern_info = copy(file_info)
-        pattern_info.data_source = "*"
+        if self.all_source_ids:
+            pattern_info.data_source = "*"
         if self.ignore_timestamp:
             pattern_info.timestamp = "*"
         data_source_pattern = self.filename_template(pattern_info)

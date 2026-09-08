@@ -83,6 +83,27 @@ test_configurations = [
     ),
     pytest.param(
         {
+            "obs_start": Time("2025-02-04T20:45:31"),
+            "sb_creator_id": 2,
+            "sb_id": 124,
+            "obs_id": 790,
+            "pixel_time_shift": True,
+        },
+        id="pixel_time_shift",
+    ),
+    pytest.param(
+        {
+            "obs_start": Time("2025-02-04T20:45:31"),
+            "sb_creator_id": 2,
+            "sb_id": 124,
+            "obs_id": 791,
+            "dvr": True,
+            "pixel_time_shift": True,
+        },
+        id="dvred_pixel_time_shift",
+    ),
+    pytest.param(
+        {
             "missing_modules": [50, 200],
             "obs_start": Time("2023-08-02T02:15:31"),
             "sb_creator_id": 2,
@@ -156,6 +177,12 @@ def dummy_dl0(dl0_base, request):
         n_modules=265, n_pixels_module=7, missing_modules=missing_modules
     )
     n_pixels = len(pixel_id_map)
+    pixel_stored = np.ones(n_pixels, dtype=bool)
+    if config.get("dvr", False):
+        # Keep every second pixel, so that the event contains fewer pixels than
+        # the camera configuration and exercises DVR reordering.
+        pixel_stored[::2] = False
+    n_pixels_stored = pixel_stored.sum()
 
     camera_configuration = DL0_Telescope.CameraConfiguration(
         tel_id=1,
@@ -245,7 +272,18 @@ def dummy_dl0(dl0_base, request):
             # TODO: randomize event to test actually parsing it
 
             # TODO: fill actual signal into waveform, not just 0
-            waveform = rng.normal(0.0, 1.0, size=(1, n_pixels, 40)).astype(np.float32)
+            waveform = rng.normal(0.0, 1.0, size=(1, n_pixels_stored, 40)).astype(
+                np.float32
+            )
+
+            additional_fields = {}
+            if config.get("pixel_time_shift", False):
+                if config.get("dvr", False):
+                    time_shift = np.arange(1, n_pixels_stored + 1, dtype=np.int16)
+                else:
+                    time_shift = rng.normal(0, 0.5, size=(n_pixels_stored,))
+                    time_shift = np.round(100 * time_shift).astype(np.int16)
+                additional_fields["pixel_time_shift"] = numpy_to_any_array(time_shift)
 
             lst_event_files[sdh_id].write_message(
                 DL0_Telescope.Event(
@@ -256,12 +294,13 @@ def dummy_dl0(dl0_base, request):
                     event_time_qns=int(time_qns),
                     # identified as signal, low gain stored, high gain stored
                     pixel_status=numpy_to_any_array(
-                        np.full(n_pixels, 0b00001101, dtype=np.uint8)
+                        np.where(pixel_stored, 0b00001101, 0).astype(np.uint8)
                     ),
                     waveform=numpy_to_any_array(convert_waveform(waveform)),
                     num_channels=1,
                     num_samples=40,
-                    num_pixels_survived=n_pixels,
+                    num_pixels_survived=n_pixels_stored,
+                    **additional_fields,
                 )
             )
             events_written[sdh_id] += 1

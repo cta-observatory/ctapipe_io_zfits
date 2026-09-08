@@ -6,6 +6,8 @@ from ctapipe.instrument import SubarrayDescription
 from ctapipe.io import EventSource, TableLoader
 from ctapipe.tools.process import ProcessorTool
 
+from ctapipe_io_zfits.dl0 import CTAPIPE_GE_0_31
+
 
 def test_is_compatible(dummy_dl0):
     from ctapipe_io_zfits import ProtozfitsDL0EventSource
@@ -45,6 +47,17 @@ def test_subarray_events(dummy_dl0):
 
             n_read += 1
             time = time + 0.001 * u.s
+
+            if CTAPIPE_GE_0_31 and dummy_dl0.get("pixel_time_shift"):
+                pixel_time_shift = array_event.dl0.tel[1].pixel_time_shift
+                assert pixel_time_shift is not None
+
+                if dummy_dl0.get("dvr"):
+                    pixel_stored = array_event.dl0.tel[1].pixel_status != 0
+                    np.testing.assert_array_equal(
+                        pixel_time_shift[0, ~pixel_stored], 0.0
+                    )
+                    assert np.all(pixel_time_shift[0, pixel_stored] > 0.0)
 
         assert n_read == 100
 

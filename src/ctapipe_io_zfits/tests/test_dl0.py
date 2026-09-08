@@ -5,6 +5,7 @@ from ctapipe.core.tool import run_tool
 from ctapipe.instrument import SubarrayDescription
 from ctapipe.io import EventSource, TableLoader
 from ctapipe.tools.process import ProcessorTool
+from traitlets.config import Config
 
 from ctapipe_io_zfits.dl0 import CTAPIPE_GE_0_31
 
@@ -29,8 +30,10 @@ def test_subarray(dummy_dl0):
 
 def test_subarray_events(dummy_dl0):
     time = dummy_dl0["obs_start"]
+    all_chunks = dummy_dl0.get("all_chunks", False)
+    config = Config({"MultiFiles": {"all_chunks": all_chunks}})
 
-    with EventSource(dummy_dl0["trigger_path"]) as source:
+    with EventSource(dummy_dl0["trigger_path"], config=config) as source:
         n_read = 0
         for i, array_event in enumerate(source):
             assert array_event.count == i
@@ -59,7 +62,7 @@ def test_subarray_events(dummy_dl0):
                     )
                     assert np.all(pixel_time_shift[0, pixel_stored] > 0.0)
 
-        assert n_read == 100
+        assert n_read == (100 if all_chunks else 40)
 
 
 def test_process(dummy_dl0, tmp_path):
@@ -143,7 +146,8 @@ def test_telescope_event_source_missing_ids(dummy_tel_file_no_ids):
     assert ProtozfitsDL0TelescopeEventSource.is_compatible(first_ff_file)
     assert ProtozfitsDL0TelescopeEventSource.is_compatible(first_ped_file)
 
-    with EventSource(first_ff_file) as source:
+    config = Config({"MultiFiles": {"all_chunks": True}})
+    with EventSource(first_ff_file, config=config) as source:
         assert isinstance(source, ProtozfitsDL0TelescopeEventSource)
 
         n_read = 0
@@ -155,7 +159,7 @@ def test_telescope_event_source_missing_ids(dummy_tel_file_no_ids):
 
         assert n_read == 50
 
-    with EventSource(first_ped_file) as source:
+    with EventSource(first_ped_file, config=config) as source:
         assert isinstance(source, ProtozfitsDL0TelescopeEventSource)
 
         n_read = 0

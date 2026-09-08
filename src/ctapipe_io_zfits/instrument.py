@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from functools import cache
 from importlib.resources import as_file, files
 
@@ -120,9 +121,14 @@ def get_reference_locations(positions):
     )
 
 
+def _use_service_data():
+    disable = os.getenv("CTAPIPE_IO_ZFITS_NO_SERVICE_DATA", "")
+    return disable.lower() not in {"1", "true", "yes"}
+
+
 def build_subarray_description(subarray_id, log=LOG):
     """Create a SubarrayDescription from the subarray_id."""
-    if hasattr(SubarrayDescription, "from_service_data"):
+    if _use_service_data() and hasattr(SubarrayDescription, "from_service_data"):
         try:
             return SubarrayDescription.from_service_data(subarray_id)
         except FileNotFoundError:

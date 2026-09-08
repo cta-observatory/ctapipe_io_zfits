@@ -150,7 +150,7 @@ class MultiFiles(Component):
     ).tag(config=True)
 
     all_chunks = Bool(
-        default_value=True,
+        default_value=False,
         help="If true, open subsequent chunks when current one is exhausted",
     ).tag(config=True)
 
@@ -223,6 +223,7 @@ class MultiFiles(Component):
         self._events_headers = {}
         self.camera_config = None
         self.data_stream = None
+        self._exhausted_sources = set()
 
         for data_source in self.data_sources:
             self._load_next_chunk(data_source)
@@ -235,6 +236,11 @@ class MultiFiles(Component):
             msg = f"filename_convention {value} not in known conventions: {known}"
             raise TraitError(msg)
         return value
+
+    @property
+    def exhausted(self):
+        """Whether all data sources / chunks available have been consumed."""
+        return len(self._exhausted_sources) == len(self.data_sources)
 
     @property
     def n_open_files(self):
@@ -326,6 +332,8 @@ class MultiFiles(Component):
                 try:
                     self._load_next_chunk(data_source)
                 except FileNotFoundError:
-                    pass
+                    self._exhausted_sources.add(data_source)
+            else:
+                self._exhausted_sources.add(data_source)
 
         return event

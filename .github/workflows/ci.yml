@@ -102,7 +102,7 @@ jobs:
           # coverage options
           echo "COVERAGE_CORE=sysmon" >> $GITHUB_ENV
           echo "NUMBA_JIT_COVERAGE=1" >> $GITHUB_ENV
-          echo "PYTEST_ADDOPTS=--cov --cov-report=xml --cov-branch $PYTEST_ADDOPTS" >> $GITHUB_ENV
+          echo "PYTEST_ADDOPTS=--cov --cov-report=xml $PYTEST_ADDOPTS" >> $GITHUB_ENV
 
           # sonar workflow env
           echo "PR_NUMBER=${PR_NUMBER}" >> sonar_env

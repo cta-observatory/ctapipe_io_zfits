@@ -24,10 +24,10 @@ jobs:
   static-code-checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - uses: pre-commit/action@v3.0.1
@@ -63,10 +63,10 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -84,32 +84,59 @@ jobs:
 
       - name: Install the package in editable mode
         run: |
-          pip install --editable .[test]
+          pip install --editable .[test] setuptools_scm
           if [ -n "${{ matrix.ctapipe-ref }}" ]; then
             pip install git+https://github.com/cta-observatory/ctapipe.git@${{ matrix.ctapipe-ref }}
           else
             pip install ctapipe==${{ matrix.ctapipe }}
           fi
 
+      - name: Setup coverage
+        if: contains(matrix.extra-args, 'codecov')
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SOURCE_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          SOURCE_BRANCH: ${{ github.event.pull_request.head.ref }}
+          TARGET_BRANCH: ${{ github.event.pull_request.base.ref }}
+        run: |
+          # coverage options
+          echo "COVERAGE_CORE=sysmon" >> $GITHUB_ENV
+          echo "NUMBA_JIT_COVERAGE=1" >> $GITHUB_ENV
+          echo "PYTEST_ADDOPTS=--cov --cov-report=xml $PYTEST_ADDOPTS" >> $GITHUB_ENV
+
+          # sonar workflow env
+          echo "PR_NUMBER=${PR_NUMBER}" >> sonar_env
+          echo "SOURCE_REPOSITORY=${SOURCE_REPOSITORY}" >> sonar_env
+          echo "SOURCE_BRANCH=${SOURCE_BRANCH}" >> sonar_env
+          echo "TARGET_BRANCH=${TARGET_BRANCH}" >> sonar_env
+          echo "PROJECT_VERSION=$(python -m setuptools_scm)" >> sonar_env
+          cat sonar_env
+
       - name: Test with pytest
         run: |
-          pytest --cov --cov-report=xml --cov-branch \
+          pytest \
             --doctest-modules \
             --ignore-glob="*/_dev_version" \
             -v
 
-      - uses: codecov/codecov-action@v3
+      # upload coverage report for sonar workflow
+      - uses: actions/upload-artifact@v7
         if: contains(matrix.extra-args, 'codecov')
+        with:
+          name: coverage-report
+          path: |
+            coverage.xml
+            sonar_env
 
   docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 

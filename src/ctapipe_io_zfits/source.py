@@ -160,11 +160,11 @@ def _fill_camera_container(
         )
         extra_fields["pixel_time_shift"] = pixel_time_shift_reordered
 
-    if is_r1:
-        if tel_event.pedestal_intensity is not None:
-            pedestal = np.zeros(n_pixels_nominal, dtype=np.float32)
-            pedestal[camera_config.pixel_id_map] = tel_event.pedestal_intensity
-            extra_fields["pedestal_intensity"] = pedestal
+    # ctapipe <= 0.33 DL0 is missing the pixel_intensity field
+    if is_r1 and tel_event.pedestal_intensity is not None:
+        pedestal = np.zeros(n_pixels_nominal, dtype=np.float32)
+        pedestal[camera_config.pixel_id_map] = tel_event.pedestal_intensity
+        extra_fields["pedestal_intensity"] = pedestal
 
     container = R1CameraContainer if is_r1 else DL0CameraContainer
     return container(

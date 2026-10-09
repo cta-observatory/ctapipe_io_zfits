@@ -238,6 +238,11 @@ class MultiFiles(Component):
         return value
 
     @property
+    def event_proto(self):
+        """Protobuf message type of the telescope events."""
+        return next(iter(self._events_headers.values()))["PBFHEAD"]
+
+    @property
     def exhausted(self):
         """Whether all data sources / chunks available have been consumed."""
         return len(self._exhausted_sources) == len(self.data_sources)
@@ -278,7 +283,6 @@ class MultiFiles(Component):
                 f"No file found for pattern {self.directory}/{pattern}"
             ) from None
 
-        Provenance().add_input_file(str(path), "DL0")
         self.log.info("Opening file %s", path)
         file_ = File(str(path), pure_protobuf=self.pure_protobuf)
         self._open_files[data_source] = file_
@@ -286,6 +290,8 @@ class MultiFiles(Component):
         events_table = file_.Events
         self._events_tables[data_source] = events_table
         self._events_headers[data_source] = events_table.header
+        datalevel = events_table.header["PBFHEAD"].split("v", 1)[0]
+        Provenance().add_input_file(str(path), datalevel)
 
         # load first event from each stream
         event = next(events_table)

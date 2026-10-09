@@ -64,5 +64,5 @@ nitpick_ignore = [
     ("py:obj", "atmosphere_density_profile"),
 ]
 nitpick_ignore_regex = [
-    ("py:obj", r".*ProtozfitsDL0.*EventSource\..*"),
+    ("py:obj", r".*Protozfits.*EventSource\..*"),
 ]

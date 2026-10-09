@@ -1,4 +1,4 @@
-"""DL0 Protozfits EventSource."""
+"""R1 and DL0 Protozfits EventSource."""
 
 import logging
 from contextlib import ExitStack
@@ -13,6 +13,7 @@ from ctapipe.containers import (
     EventType,
     ObservationBlockContainer,
     PixelStatus,
+    R1CameraContainer,
     SchedulingBlockContainer,
     TelescopeTriggerContainer,
     TriggerContainer,
@@ -29,8 +30,8 @@ from .multifile import MultiFiles
 from .time import cta_high_res_to_time
 
 __all__ = [
-    "ProtozfitsDL0EventSource",
-    "ProtozfitsDL0TelescopeEventSource",
+    "ProtozfitsEventSource",
+    "ProtozfitsTelescopeEventSource",
 ]
 
 log = logging.getLogger(__name__)
@@ -81,7 +82,7 @@ def _is_compatible(input_url, extname, allowed_protos):
     return True
 
 
-def _fill_dl0_container(
+def _fill_camera_container(
     tel_event,
     data_stream,
     camera_config,
@@ -89,9 +90,11 @@ def _fill_dl0_container(
     ignore_samples_start=0,
     ignore_samples_end=0,
     dvr_fill_value=0.0,
+    datalevel=DataLevel.DL0,
 ):
     n_channels = tel_event.num_channels
-    n_pixels_stored = tel_event.num_pixels_survived
+    is_r1 = datalevel == DataLevel.R1
+    n_pixels_stored = tel_event.num_pixels if is_r1 else tel_event.num_pixels_survived
     n_samples = tel_event.num_samples
     shape = (n_channels, n_pixels_stored, n_samples)
     waveform = tel_event.waveform.reshape(shape)
@@ -103,10 +106,18 @@ def _fill_dl0_container(
     pixel_status = tel_event.pixel_status
     # FIXME: seems ACADA doesn't set pixels to "stored" when no DVR is applied
     all_pixels_stored = n_pixels_stored == camera_config.num_pixels
-    if all_pixels_stored and np.all(PixelStatus.get_dvr_status(pixel_status) == 0):
+    if (
+        not is_r1
+        and all_pixels_stored
+        and np.all(PixelStatus.get_dvr_status(pixel_status) == 0)
+    ):
         pixel_status = pixel_status | PixelStatus.DVR_1
 
-    pixel_stored = PixelStatus.get_dvr_status(pixel_status) != 0
+    pixel_stored = (
+        np.ones(n_pixels_stored, dtype=bool)
+        if is_r1
+        else PixelStatus.get_dvr_status(pixel_status) != 0
+    )
 
     # fill not readout pixels with 0, reorder pixels
     n_pixels_nominal = camera_geometry.n_pixels
@@ -129,7 +140,7 @@ def _fill_dl0_container(
     channel_info = PixelStatus.get_channel_info(pixel_status_reordered)
     if n_channels == 1:
         selected_gain_channel = np.where(
-            channel_info == PixelStatus.HIGH_GAIN_STORED,
+            channel_info == PixelStatus.get_channel_info(PixelStatus.HIGH_GAIN_STORED),
             GainChannel.HIGH,
             GainChannel.LOW,
         )
@@ -141,13 +152,22 @@ def _fill_dl0_container(
         # pixel_time_shift is stored as int16, in 10 ps increments. Convert to ns.
         pixel_time_shift = tel_event.pixel_time_shift.astype(np.float32) * TEN_PS_TO_NS
         pixel_time_shift = pixel_time_shift.reshape((n_channels, n_pixels_stored))
-        pixel_time_shift_reordered = np.zeros((n_channels, n_pixels_nominal))
+        pixel_time_shift_reordered = np.zeros(
+            (n_channels, n_pixels_nominal), dtype=np.float32
+        )
         pixel_time_shift_reordered[..., camera_config.pixel_id_map[pixel_stored]] = (
             pixel_time_shift
         )
         extra_fields["pixel_time_shift"] = pixel_time_shift_reordered
 
-    return DL0CameraContainer(
+    # ctapipe <= 0.33 DL0 is missing the pixel_intensity field
+    if is_r1 and tel_event.pedestal_intensity is not None:
+        pedestal = np.zeros(n_pixels_nominal, dtype=np.float32)
+        pedestal[camera_config.pixel_id_map] = tel_event.pedestal_intensity
+        extra_fields["pedestal_intensity"] = pedestal
+
+    container = R1CameraContainer if is_r1 else DL0CameraContainer
+    return container(
         pixel_status=pixel_status_reordered,
         event_type=EventType(int(tel_event.event_type)),
         selected_gain_channel=selected_gain_channel,
@@ -157,13 +177,14 @@ def _fill_dl0_container(
         ),
         waveform=waveform,
         first_cell_id=tel_event.first_cell_id,
+        calibration_monitoring_id=tel_event.calibration_monitoring_id,
         **extra_fields,
     )
 
 
-class ProtozfitsDL0EventSource(EventSource):
+class ProtozfitsEventSource(EventSource):
     """
-    DL0 Protozfits EventSource.
+    DL0 Protozfits subarray EventSource.
 
     The ``input_url`` must be the subarray trigger file, the source
     will then look for the other data files according to the filename and
@@ -303,7 +324,8 @@ class ProtozfitsDL0EventSource(EventSource):
 
         if tel_event is None:
             self.log_missing(
-                "No telescope data for event_id=%d, tel_id=%d, and no events left in file",
+                "No telescope data for event_id=%d, tel_id=%d, "
+                "and no events left in file",
                 event_id,
                 tel_id,
             )
@@ -343,7 +365,8 @@ class ProtozfitsDL0EventSource(EventSource):
             )
 
             tel_ids = subarray_trigger.tel_ids_with_data
-            # older ACADA test campaign data does not have tel_ids_with_data, which was introduced in 2025
+            # Older ACADA test data does not have tel_ids_with_data,
+            # which was introduced in 2025.
             if tel_ids is None:
                 tel_ids = subarray_trigger.tel_ids_with_trigger
 
@@ -355,7 +378,7 @@ class ProtozfitsDL0EventSource(EventSource):
                 if tel_event is None:
                     continue
 
-                dl0_tel = _fill_dl0_container(
+                dl0_tel = _fill_camera_container(
                     tel_event,
                     tel_file.data_stream,
                     tel_file.camera_config,
@@ -378,22 +401,25 @@ class ProtozfitsDL0EventSource(EventSource):
             yield array_event
 
 
-def _fill_calibration_container(array_event, tel_id, n_channels):
-    pixel_status = array_event.dl0.tel[tel_id].pixel_status
-    broken = PixelStatus.get_channel_info(pixel_status) == 0
-    mask = np.zeros((n_channels, len(broken)), dtype=bool)
-    mask[:, broken] = True
+def _fill_calibration_container(
+    array_event, tel_id, n_channels, datalevel=DataLevel.DL0
+):
+    pixel_status = getattr(array_event, datalevel.name.lower()).tel[tel_id].pixel_status
+    mask = np.zeros((n_channels, len(pixel_status)), dtype=bool)
+    mask[GainChannel.HIGH] = (pixel_status & PixelStatus.HIGH_GAIN_STORED) == 0
+    if n_channels > 1:
+        mask[GainChannel.LOW] = (pixel_status & PixelStatus.LOW_GAIN_STORED) == 0
 
     array_event.monitoring.tel[tel_id].camera.coefficients = CameraCalibrationContainer(
         outlier_mask=mask,
     )
 
 
-class ProtozfitsDL0TelescopeEventSource(EventSource):
+class ProtozfitsTelescopeEventSource(EventSource):
     """
-    DL0 Protozfits Telescope EventSource.
+    R1 and DL0 Protozfits Telescope EventSource.
 
-    The ``input_url`` is one of the telescope events files.
+    The ``input_url`` is one of the R1v1 or DL0v1 telescope events files.
     """
 
     subarray_id = Integer(default_value=1).tag(config=True)
@@ -409,7 +435,7 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
         return _is_compatible(
             input_url,
             extname="Events",
-            allowed_protos={"DL0v1.Telescope.Event"},
+            allowed_protos={"DL0v1.Telescope.Event", "R1v1.Event"},
         )
 
     def __init__(self, input_url=None, **kwargs):
@@ -426,6 +452,10 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
         self._multi_file = self._exit_stack.enter_context(
             MultiFiles(self.input_url, parent=self)
         )
+        self._datalevel = {
+            "DL0v1.Telescope.Event": DataLevel.DL0,
+            "R1v1.Event": DataLevel.R1,
+        }[self._multi_file.event_proto]
         self.sb_id = self._multi_file.data_stream.sb_id
         self.obs_id = self._multi_file.data_stream.obs_id
         self.tel_id = self._multi_file.data_stream.tel_id
@@ -453,7 +483,7 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
 
     @property
     def datalevels(self) -> tuple[DataLevel]:  # noqa: D102
-        return (DataLevel.DL0,)
+        return (self._datalevel,)
 
     @property
     def subarray(self) -> SubarrayDescription:  # noqa: D102
@@ -493,16 +523,21 @@ class ProtozfitsDL0TelescopeEventSource(EventSource):
             time=time,
             event_type=event_type,
         )
-        array_event.dl0.tel[tel_id] = _fill_dl0_container(
-            zfits_event,
-            self._multi_file.data_stream,
-            self._multi_file.camera_config,
-            camera.geometry,
-            ignore_samples_start=self.ignore_samples_start,
-            ignore_samples_end=self.ignore_samples_end,
-            dvr_fill_value=self._dvr_fill_value,
+        getattr(array_event, self._datalevel.name.lower()).tel[tel_id] = (
+            _fill_camera_container(
+                zfits_event,
+                self._multi_file.data_stream,
+                self._multi_file.camera_config,
+                camera.geometry,
+                ignore_samples_start=self.ignore_samples_start,
+                ignore_samples_end=self.ignore_samples_end,
+                dvr_fill_value=self._dvr_fill_value,
+                datalevel=self._datalevel,
+            )
         )
-        _fill_calibration_container(array_event, tel_id, camera.readout.n_channels)
+        _fill_calibration_container(
+            array_event, tel_id, camera.readout.n_channels, self._datalevel
+        )
         return array_event
 
     def _generator(self):

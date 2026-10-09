@@ -405,9 +405,10 @@ def _fill_calibration_container(
     array_event, tel_id, n_channels, datalevel=DataLevel.DL0
 ):
     pixel_status = getattr(array_event, datalevel.name.lower()).tel[tel_id].pixel_status
-    broken = PixelStatus.get_channel_info(pixel_status) == 0
-    mask = np.zeros((n_channels, len(broken)), dtype=bool)
-    mask[:, broken] = True
+    mask = np.zeros((n_channels, len(pixel_status)), dtype=bool)
+    mask[GainChannel.HIGH] = (pixel_status & PixelStatus.HIGH_GAIN_STORED) == 0
+    if n_channels > 1:
+        mask[GainChannel.LOW] = (pixel_status & PixelStatus.LOW_GAIN_STORED) == 0
 
     array_event.monitoring.tel[tel_id].camera.coefficients = CameraCalibrationContainer(
         outlier_mask=mask,

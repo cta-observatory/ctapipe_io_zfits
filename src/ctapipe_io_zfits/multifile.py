@@ -30,13 +30,15 @@ class NextEvent:
 class FileInfo:
     tel_id: int
     data_source: str
-    obs_id: int
+    obs_id: int | None = None
     sb_id: int | None = None
+    local_run_id: int | None = None
     chunk: int | None = None
     timestamp: str | None = None
-    data_type: str = ""
+    data_type: str | None = None
     sb_id_padding: int = 0
     obs_id_padding: int = 0
+    local_run_id_padding: int = 0
     chunk_padding: int = 0
     extra_suffix: str = ""
 
@@ -47,11 +49,19 @@ def acada_rel1_filename(info):
 
 
 def acada_dpps_icd_filename(info):
-    name = f"TEL{info.tel_id:03d}_{info.data_source}_{info.timestamp}"
+    name = f"TEL{info.tel_id:03d}_{info.data_source}"
+
+    if info.timestamp is not None:
+        name += f"_{info.timestamp}"
+
     if info.sb_id is not None:
         name += f"_SBID{info.sb_id:0{info.sb_id_padding}d}"
+
     if info.obs_id is not None:
         name += f"_OBSID{info.obs_id:0{info.obs_id_padding}d}"
+
+    if info.local_run_id is not None:
+        name += f"_RUNID{info.local_run_id:0{info.local_run_id_padding}d}"
 
     if info.data_type is not None:
         name += f"_{info.data_type}"
@@ -68,6 +78,14 @@ def lst_filename(file_info: FileInfo):
     )
 
 
+ACADA_DPPS_ICD_FILENAME_RE = re.compile(
+    r"TEL(?P<tel_id>\d+)_(?P<data_source>SDH\d+)(?:_(?P<timestamp>\d{8}T\d{6}))"
+    r"(?:_SBID(?P<sb_id>\d+))?(?:_OBSID(?P<obs_id>\d+))?(?:_RUNID(?P<local_run_id>\d+))?"
+    r"(:?_(?P<data_type>[a-zA-Z0-9_]+))?_CHUNK(?P<chunk>\d+)"
+    r"(?P<extra_suffix>.*)\.fits\.fz$"
+)
+
+
 filename_conventions = {
     # Tel001_SDH_3001_20231003T204445_sbid2000000008_obid2000000016_9.fits.fz
     "acada_rel1": {
@@ -78,9 +96,7 @@ filename_conventions = {
     },
     "acada_dpps_icd": {
         # TEL001_SDH0001_20231013T220427_SBID0000000002000000013_OBSID0000000002000000027_CHUNK000.fits.fz
-        "re": re.compile(
-            r"TEL(?P<tel_id>\d+)_(?P<data_source>SDH\d+)_(?P<timestamp>\d{8}T\d{6})(?:_SBID(?P<sb_id>\d+))?(?:_OBSID(?P<obs_id>\d+))?(:?_(?P<data_type>[a-zA-Z0-9_]+))?_CHUNK(?P<chunk>\d+)(?P<extra_suffix>.*)\.fits\.fz$"  # noqa
-        ),
+        "re": re.compile(ACADA_DPPS_ICD_FILENAME_RE),
         "template": acada_dpps_icd_filename,
     },
     "lst": {
@@ -119,16 +135,27 @@ def get_file_info(path, convention):
     sb_id = optional_int(groups.get("sb_id"))
     sb_id_padding = len(groups["sb_id"]) if sb_id is not None else 0
 
+    local_run_id = optional_int(groups.get("local_run_id"))
+    local_run_id_padding = (
+        len(groups["local_run_id"]) if local_run_id is not None else 0
+    )
+
+    data_type = groups.get("data_type")
+    if data_type == "":
+        data_type = None
+
     return FileInfo(
         tel_id=int(groups["tel_id"]),
         data_source=groups["data_source"],
         timestamp=groups.get("timestamp"),
         sb_id=sb_id,
         obs_id=obs_id,
+        local_run_id=local_run_id,
         chunk=chunk,
-        data_type=groups.get("data_type"),
+        data_type=data_type,
         sb_id_padding=sb_id_padding,
         obs_id_padding=obs_id_padding,
+        local_run_id_padding=local_run_id_padding,
         chunk_padding=chunk_padding,
         extra_suffix=groups["extra_suffix"],
     )

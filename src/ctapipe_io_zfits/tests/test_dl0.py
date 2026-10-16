@@ -7,20 +7,20 @@ from ctapipe.io import EventSource, TableLoader
 from ctapipe.tools.process import ProcessorTool
 from traitlets.config import Config
 
-from ctapipe_io_zfits.dl0 import CTAPIPE_GE_0_31
+from ctapipe_io_zfits.source import CTAPIPE_GE_0_31
 
 
 def test_is_compatible(dummy_dl0):
-    from ctapipe_io_zfits import ProtozfitsDL0EventSource
+    from ctapipe_io_zfits import ProtozfitsEventSource
 
-    assert ProtozfitsDL0EventSource.is_compatible(dummy_dl0["trigger_path"])
+    assert ProtozfitsEventSource.is_compatible(dummy_dl0["trigger_path"])
 
 
 def test_is_valid_eventsource(dummy_dl0):
-    from ctapipe_io_zfits.dl0 import ProtozfitsDL0EventSource
+    from ctapipe_io_zfits.source import ProtozfitsEventSource
 
     with EventSource(dummy_dl0["trigger_path"]) as source:
-        assert isinstance(source, ProtozfitsDL0EventSource)
+        assert isinstance(source, ProtozfitsEventSource)
 
 
 def test_subarray(dummy_dl0):
@@ -82,12 +82,12 @@ def test_process(dummy_dl0, tmp_path):
 
 
 def test_telescope_event_source(dummy_tel_file):
-    from ctapipe_io_zfits.dl0 import ProtozfitsDL0TelescopeEventSource
+    from ctapipe_io_zfits.source import ProtozfitsTelescopeEventSource
 
-    assert ProtozfitsDL0TelescopeEventSource.is_compatible(dummy_tel_file)
+    assert ProtozfitsTelescopeEventSource.is_compatible(dummy_tel_file)
 
     with EventSource(dummy_tel_file) as source:
-        assert isinstance(source, ProtozfitsDL0TelescopeEventSource)
+        assert isinstance(source, ProtozfitsTelescopeEventSource)
 
         for i, event in enumerate(source):
             assert event.count == i
@@ -119,9 +119,9 @@ def test_process_tel_events(dummy_dl0, tmp_path):
 
 
 def test_pixel_status(dummy_tel_file):
-    from ctapipe_io_zfits.dl0 import ProtozfitsDL0TelescopeEventSource
+    from ctapipe_io_zfits.source import ProtozfitsTelescopeEventSource
 
-    with ProtozfitsDL0TelescopeEventSource(dummy_tel_file, max_events=10) as f:
+    with ProtozfitsTelescopeEventSource(dummy_tel_file, max_events=10) as f:
         n_read = 0
         for e in f:
             n_read += 1
@@ -139,16 +139,16 @@ def test_pixel_status(dummy_tel_file):
 
 
 def test_telescope_event_source_missing_ids(dummy_tel_file_no_ids):
-    from ctapipe_io_zfits.dl0 import ProtozfitsDL0TelescopeEventSource
+    from ctapipe_io_zfits.source import ProtozfitsTelescopeEventSource
 
     first_ff_file, first_ped_file = dummy_tel_file_no_ids
 
-    assert ProtozfitsDL0TelescopeEventSource.is_compatible(first_ff_file)
-    assert ProtozfitsDL0TelescopeEventSource.is_compatible(first_ped_file)
+    assert ProtozfitsTelescopeEventSource.is_compatible(first_ff_file)
+    assert ProtozfitsTelescopeEventSource.is_compatible(first_ped_file)
 
     config = Config({"MultiFiles": {"all_chunks": True}})
     with EventSource(first_ff_file, config=config) as source:
-        assert isinstance(source, ProtozfitsDL0TelescopeEventSource)
+        assert isinstance(source, ProtozfitsTelescopeEventSource)
 
         n_read = 0
         for event in source:
@@ -160,7 +160,7 @@ def test_telescope_event_source_missing_ids(dummy_tel_file_no_ids):
         assert n_read == 50
 
     with EventSource(first_ped_file, config=config) as source:
-        assert isinstance(source, ProtozfitsDL0TelescopeEventSource)
+        assert isinstance(source, ProtozfitsTelescopeEventSource)
 
         n_read = 0
         for event in source:

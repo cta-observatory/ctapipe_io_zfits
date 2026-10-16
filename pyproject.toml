@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ctapipe_io_zfits"
 
-description = "ctapipe io plugin for reading data in DL0 zfits files"
+description = "ctapipe io plugin for reading R1 and DL0 data in zfits files"
 readme = "README.md"
 license = "BSD-3-Clause"
 authors = [
@@ -46,7 +46,7 @@ all = [
 ]
 
 [project.entry-points.ctapipe_io]
-ProtozfitsDL0EventSource = "ctapipe_io_zfits.dl0:ProtozfitsDL0EventSource"
+ProtozfitsEventSource = "ctapipe_io_zfits.source:ProtozfitsEventSource"
 
 
 [project.urls]

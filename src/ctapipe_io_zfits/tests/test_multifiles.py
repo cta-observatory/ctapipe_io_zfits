@@ -220,15 +220,36 @@ def test_next_run_padded_ids(run_files, ignore_timestamp):
         assert mf.exhausted
 
 
-def test_all_runs_without_local_run_id(run_files):
+@pytest.mark.parametrize("all_runs", [False, True])
+def test_sources_must_have_starting_chunk(run_files, all_runs):
+    from ctapipe_io_zfits.multifile import MultiFiles
+
+    add_file, _ = run_files
+    path = add_file([1])
+    add_file([3], chunk=1)
+    add_file([2], data_source="SDH002", chunk=1)
+    add_file([100], data_source="SDH003", local_run_id=8)
+
+    with MultiFiles(path, all_chunks=True, all_runs=all_runs) as mf:
+        assert mf.data_sources == {"SDH001"}
+        assert [event.event_id for event in mf] == [1, 3]
+        assert mf.exhausted
+
+
+@pytest.mark.parametrize("all_runs", [False, True])
+def test_all_runs_without_local_run_id(run_files, all_runs):
     from ctapipe_io_zfits.multifile import MultiFiles
 
     add_file, _ = run_files
     path = add_file([1], local_run_id=None)
-    add_file([2], local_run_id=8)
+    add_file([2], local_run_id=None, data_source="SDH002")
+    add_file([3], local_run_id=None, chunk=1)
+    add_file([4], local_run_id=None, data_source="SDH002", chunk=1)
+    add_file([5], local_run_id=8)
 
-    with MultiFiles(path, all_chunks=True, all_runs=True) as mf:
-        assert [event.event_id for event in mf] == [1]
+    with MultiFiles(path, all_chunks=True, all_runs=all_runs) as mf:
+        assert mf.n_open_files == 2
+        assert [event.event_id for event in mf] == [1, 2, 3, 4]
         assert mf.exhausted
 
 

@@ -253,8 +253,8 @@ class MultiFiles(Component):
         for data_source in self.data_sources:
             self._load_next_chunk(data_source)
 
-    def _discover_files(self, file_info):
-        """Discover matching files and index them by data source, run, and chunk."""
+    def _get_pattern(self, file_info):
+        """Build the discovery glob for the configured chunks and runs."""
         pattern_info = copy(file_info)
         pattern_info.data_source = "*"
         if self.all_chunks or self.all_runs:
@@ -266,37 +266,67 @@ class MultiFiles(Component):
             pattern_info.timestamp = "*"
         elif self.ignore_timestamp:
             pattern_info.timestamp = "*"
-        pattern = self.filename_template(pattern_info)
+        return self.filename_template(pattern_info)
 
+    def _get_file_info(self, path, file_info):
+        """Parse a candidate and check its observation metadata and run range."""
+        try:
+            info = get_file_info(path, convention=self.filename_convention)
+        except ValueError:
+            self.log.error("Error getting file info from path %s, skipping", path)
+            return
+
+        # this is a bit paranoid, but in theory glob could match more than it should
+        if any(
+            getattr(info, key) != getattr(file_info, key)
+            for key in ("tel_id", "sb_id", "obs_id", "data_type", "extra_suffix")
+        ):
+            self.log.debug(
+                "Path %s matched glob pattern but file_info did not match, skipping",
+                path,
+            )
+            return
+
+        # skip files if our file has no run but candidate file has run
+        if file_info.local_run_id is None and info.local_run_id is not None:
+            self.log.debug("Path %s has a local_run_id, skipping", path)
+            return
+
+        # skip files if our file has a run and candidate file has no or lower run
+        if file_info.local_run_id is not None and info.local_run_id is None:
+            self.log.debug("Path %s has no local_run_id, skipping", path)
+            return
+
+        if not self.all_runs and info.local_run_id != file_info.local_run_id:
+            self.log.debug("Path %s has different local_run_id, skipping", path)
+            return
+
+        if (
+            self.all_runs
+            and file_info.local_run_id is not None
+            and info.local_run_id < file_info.local_run_id
+        ):
+            self.log.debug("Path %s has lower local_run_id, skipping", path)
+            return
+
+        return info
+
+    def _discover_files(self, file_info):
+        """Discover matching files and index them by data source, run, and chunk."""
+        pattern = self._get_pattern(file_info)
         self.log.debug("Looking for files using pattern: %s", pattern)
         self._files = {}
         file_infos = {}
         self.data_sources = set()
-        for candidate in self.directory.glob(pattern):
-            try:
-                info = (
-                    file_info
-                    if candidate == self.path
-                    else get_file_info(candidate, convention=self.filename_convention)
-                )
-            except ValueError:
-                continue
-            if any(
-                getattr(info, key) != getattr(file_info, key)
-                for key in ("tel_id", "sb_id", "obs_id", "data_type", "extra_suffix")
-            ):
-                continue
-            if file_info.local_run_id is None:
-                if info.local_run_id is not None:
-                    continue
-            elif (
-                info.local_run_id is None or info.local_run_id < file_info.local_run_id
-            ):
-                continue
 
-            runs = self._files.setdefault(info.data_source, {})
-            chunks = runs.setdefault(info.local_run_id, {})
-            chunks.setdefault(info.chunk, []).append(candidate)
+        for candidate in self.directory.glob(pattern):
+            if candidate == self.path:
+                info = file_info
+            else:
+                info = self._get_file_info(candidate, file_info)
+                if info is None:
+                    continue
+
             file_infos[candidate] = info
             if (
                 info.local_run_id == file_info.local_run_id
@@ -304,9 +334,13 @@ class MultiFiles(Component):
                 and (self.ignore_timestamp or info.timestamp == file_info.timestamp)
             ):
                 self.data_sources.add(info.data_source)
+            runs = self._files.setdefault(info.data_source, {})
+            chunks = runs.setdefault(info.local_run_id, {})
+            chunks.setdefault(info.chunk, []).append(candidate)
 
         if not self.data_sources:
             raise ValueError(f"Did not find any files matching pattern: {pattern}")
+
         self.log.debug("Found the following data sources: %s", self.data_sources)
 
         for source in self.data_sources:

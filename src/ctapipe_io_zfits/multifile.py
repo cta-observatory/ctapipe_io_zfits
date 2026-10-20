@@ -342,7 +342,9 @@ class MultiFiles(Component):
             raise ValueError(f"Did not find any files matching pattern: {pattern}")
 
         self.log.debug("Found the following data sources: %s", self.data_sources)
+        self._index_files(file_info, file_infos)
 
+    def _index_files(self, file_info, file_infos):
         for source in self.data_sources:
             for run, chunks in self._files[source].items():
                 if not self.ignore_timestamp:

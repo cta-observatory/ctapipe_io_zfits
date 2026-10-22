@@ -1,4 +1,5 @@
 """Functions for dealing with path names."""
+
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -15,6 +16,7 @@ class FileNameInfo:
     subarray_id: int | None = None
     sb_id: int | None = None
     obs_id: int | None = None
+    local_run_id: int | None = None
     type_: str | None = None
     subtype: str | None = None
     chunk_id: int | None = None
@@ -25,11 +27,12 @@ class FileNameInfo:
 
 #: regex to match filenames according to the ACADA DPPS ICD naming pattern
 FILENAME_RE = re.compile(
-    r"(?:(?:SUB(?P<subarray_id>\d+))|(?:(?P<ae_type>TEL|AUX)(?P<ae_id>\d+)))"
+    r"(?:(?:SUB(?P<subarray_id>\d+))|(?:(?P<ae_type>TEL|AUX|ACE)(?P<ae_id>\d+)))"
     r"(?:_(?P<data_source_id>[A-Z]+\d*))"
     r"(?:_(?P<date>[0-9]{8})(?:T(?P<time>[0-9]{6}))?)"
     r"(?:_SBID(?P<sb_id>\d+))?"
     r"(?:_OBSID(?P<obs_id>\d+))?"
+    r"(?:_RUNID(?P<local_run_id>\d+))?"
     # need to prevent that FILE001 / CHUNK001 becomes the type
     r"(?:_(?P<type_>(?!FILE)(?!CHUNK)[A-Z0-9]+))?"
     r"(?:_(?P<subtype>SHOWER|CAL|MUON))?"
@@ -54,6 +57,7 @@ def parse_filename(path):
         "subarray_id",
         "sb_id",
         "obs_id",
+        "local_run_id",
         "chunk_id",
         "file_id",
     ):

@@ -256,7 +256,8 @@ class MultiFiles(Component):
     def _get_pattern(self, file_info):
         """Build the discovery glob for the configured chunks and runs."""
         pattern_info = copy(file_info)
-        pattern_info.data_source = "*"
+        if self.all_source_ids:
+            pattern_info.data_source = "*"
         if self.all_chunks or self.all_runs:
             pattern_info.chunk = "*"
             pattern_info.chunk_padding = 0

@@ -112,8 +112,11 @@ def test_indexed_chunks_other_conventions(run_files, convention, data_source):
 
 @pytest.mark.parametrize("all_runs", [False, True])
 @pytest.mark.parametrize("all_chunks", [False, True])
+@pytest.mark.parametrize("all_source_ids", [False, True])
 @pytest.mark.parametrize("next_chunk", [0, 1, 2, 9])
-def test_multifiles_all_runs(run_files, all_runs, all_chunks, next_chunk):
+def test_multifiles_all_runs(
+    run_files, all_runs, all_chunks, all_source_ids, next_chunk
+):
     from ctapipe_io_zfits.multifile import MultiFiles
 
     add_file, files = run_files
@@ -139,7 +142,14 @@ def test_multifiles_all_runs(run_files, all_runs, all_chunks, next_chunk):
         # A different observation must never be opened, even with the next run id.
         add_file([100 + offset], data_source=source, local_run_id=9, obs_id=457)
 
-    with MultiFiles(path, all_chunks=all_chunks, all_runs=all_runs) as mf:
+    # The input path belongs to SDH002, so single-source iteration must read it.
+    with MultiFiles(
+        path, all_chunks=all_chunks, all_runs=all_runs, all_source_ids=all_source_ids
+    ) as mf:
+        assert mf.data_sources == (
+            {"SDH001", "SDH002"} if all_source_ids else {"SDH002"}
+        )
+        assert mf.n_open_files == (2 if all_source_ids else 1)
         expected = [1, 2, 3, 4]
         if all_chunks:
             expected += [5, 6]
@@ -148,6 +158,9 @@ def test_multifiles_all_runs(run_files, all_runs, all_chunks, next_chunk):
             if all_chunks:
                 expected += [11, 12]
             expected += [13, 14]
+
+        if not all_source_ids:
+            expected = [event_id for event_id in expected if event_id % 2 == 0]
 
         assert [event.event_id for event in mf] == expected
         assert mf.exhausted

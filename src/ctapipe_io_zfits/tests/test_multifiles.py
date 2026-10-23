@@ -479,3 +479,43 @@ def test_ignore_timestamps(ignore_timestamp, dummy_tel_file, dl0_base, tmp_path)
             assert mf.n_open_files == 4
         else:
             assert mf.n_open_files == 2
+
+
+@pytest.mark.xfail(reason="Not expected in real data")
+def test_invalid_duplicate_timestamp(run_files):
+    """
+    Test that the multifile behaves as expected given the options descriptions,
+    but for a case that should never happen with real ACADA data.
+
+    There should never be a file with the same obs_id/run_id but different timestamp.
+    """
+    from ctapipe_io_zfits.multifile import MultiFiles
+
+    add_file, _ = run_files
+
+    # start-run: both data sources with same timestamp.
+    path = add_file([1], data_source="SDH001")
+    add_file([2], data_source="SDH002")
+
+    # next-run: different timestamps.
+    add_file(
+        [3],
+        data_source="SDH001",
+        local_run_id=8,
+        timestamp="20261019T210000",
+    )
+    add_file(
+        [4],
+        data_source="SDH002",
+        local_run_id=8,
+        timestamp="20261019T220000",
+    )
+
+    with MultiFiles(
+        path,
+        all_runs=True,
+        ignore_timestamp=False,
+    ) as multifiles:
+        event_ids = [event.event_id for event in multifiles]
+
+    assert event_ids == [1, 2, 3]

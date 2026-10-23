@@ -144,6 +144,22 @@ icd_examples = [
         ),
     ),
     (
+        "TEL001_SDH001_20231011T030105_SBID000000012345_OBSID0000000006789_RUNID00112_TEL_SHOWER_CHUNK000.fits.fz",  # noqa
+        FileNameInfo(
+            ae_type="TEL",
+            ae_id=1,
+            data_source_id="SDH001",
+            timestamp=timestamp,
+            sb_id=12345,
+            obs_id=6789,
+            local_run_id=112,
+            type_="TEL",
+            subtype="SHOWER",
+            chunk_id=0,
+            suffix=".fits.fz",
+        ),
+    ),
+    (
         "TEL001_SDH001_20231011T030105_SBID0000000000000012345_OBSID0000000000000006789_TEL_SHOWER_CHUNK001.fits.fz",  # noqa
         FileNameInfo(
             ae_type="TEL",

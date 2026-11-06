@@ -5,8 +5,6 @@ from contextlib import ExitStack
 
 import numpy as np
 from ctapipe.containers import (
-    CameraCalibrationContainer,
-    CameraMonitoringContainer,
     EventType,
     ObservationBlockContainer,
     PixelStatus,
@@ -18,7 +16,6 @@ from ctapipe.containers import (
     TelescopeDL0Container,
     TelescopeEventContainer,
     TelescopeEventIndexContainer,
-    TelescopeMonitoringContainer,
     TelescopeR1Container,
     TelescopeTriggerContainer,
 )
@@ -192,13 +189,6 @@ def _fill_telescope_event(
             obs_id=data_stream.obs_id,
             event_id=tel_event.event_id,
             tel_id=data_stream.tel_id,
-        ),
-        monitoring=TelescopeMonitoringContainer(
-            camera=CameraMonitoringContainer(
-                coefficients=_fill_calibration_container(
-                    pixel_status_reordered, camera.readout.n_channels
-                )
-            )
         ),
     )
     setattr(event, datalevel.name.lower(), camera_event)
@@ -414,15 +404,6 @@ class ProtozfitsEventSource(EventSource):
                 )
 
             yield subarray_event
-
-
-def _fill_calibration_container(pixel_status, n_channels):
-    mask = np.zeros((n_channels, len(pixel_status)), dtype=bool)
-    mask[GainChannel.HIGH] = (pixel_status & PixelStatus.HIGH_GAIN_STORED) == 0
-    if n_channels > 1:
-        mask[GainChannel.LOW] = (pixel_status & PixelStatus.LOW_GAIN_STORED) == 0
-
-    return CameraCalibrationContainer(outlier_mask=mask)
 
 
 class ProtozfitsTelescopeEventSource(EventSource):

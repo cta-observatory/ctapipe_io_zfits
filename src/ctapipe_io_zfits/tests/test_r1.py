@@ -144,17 +144,7 @@ def test_r1_telescope_source(r1_file, fill_nan):
                 PixelStatus.get_channel_info(r1_file["status"]),
             )
             np.testing.assert_array_equal(camera.pixel_status[ids], r1_file["status"])
-            mask = event.tel[1].monitoring.camera.coefficients.outlier_mask
-            np.testing.assert_array_equal(
-                mask[:, ids],
-                [
-                    [False, True, False, True],
-                    [True, False, r1_file["n_channels"] == 1, True],
-                ],
-            )
-            missing_pixels = np.ones(n_pixels, dtype=bool)
-            missing_pixels[ids] = False
-            assert np.all(mask[:, missing_pixels])
+            assert event.tel[1].monitoring.camera.coefficients.outlier_mask is None
             if r1_file["n_channels"] == 1:
                 np.testing.assert_array_equal(
                     camera.selected_gain_channel[ids], [0, 1, 0, 1]

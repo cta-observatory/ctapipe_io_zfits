@@ -4,25 +4,25 @@ import logging
 from contextlib import ExitStack
 
 import numpy as np
-from ctapipe import __version__ as ctapipe_version
 from ctapipe.containers import (
-    ArrayEventContainer,
-    CameraCalibrationContainer,
-    DL0CameraContainer,
-    EventIndexContainer,
     EventType,
     ObservationBlockContainer,
     PixelStatus,
-    R1CameraContainer,
     SchedulingBlockContainer,
+    SubarrayDL0Container,
+    SubarrayEventContainer,
+    SubarrayEventIndexContainer,
+    SubarrayTriggerContainer,
+    TelescopeDL0Container,
+    TelescopeEventContainer,
+    TelescopeEventIndexContainer,
+    TelescopeR1Container,
     TelescopeTriggerContainer,
-    TriggerContainer,
 )
 from ctapipe.core.traits import Bool, Integer
 from ctapipe.instrument import SubarrayDescription
 from ctapipe.io import DataLevel, EventSource
 from ctapipe.io.simteleventsource import GainChannel
-from packaging.version import Version
 from protozfits import File
 
 from .instrument import build_subarray_description, get_array_elements_by_id
@@ -35,9 +35,6 @@ __all__ = [
 ]
 
 log = logging.getLogger(__name__)
-
-CTAPIPE_VERSION = Version(ctapipe_version)
-CTAPIPE_GE_0_31 = CTAPIPE_VERSION >= Version("0.31.0a0")
 
 ARRAY_ELEMENTS = get_array_elements_by_id()
 TEN_PS_TO_NS = np.float32(0.01)
@@ -82,11 +79,12 @@ def _is_compatible(input_url, extname, allowed_protos):
     return True
 
 
-def _fill_camera_container(
+def _fill_telescope_event(
     tel_event,
+    *,
     data_stream,
     camera_config,
-    camera_geometry,
+    camera,
     ignore_samples_start=0,
     ignore_samples_end=0,
     dvr_fill_value=0.0,
@@ -120,7 +118,7 @@ def _fill_camera_container(
     )
 
     # fill not readout pixels with 0, reorder pixels
-    n_pixels_nominal = camera_geometry.n_pixels
+    n_pixels_nominal = camera.geometry.n_pixels
     waveform = np.full(
         (n_channels, n_pixels_nominal, n_samples), dvr_fill_value, dtype=np.float32
     )
@@ -148,7 +146,7 @@ def _fill_camera_container(
         selected_gain_channel = None
 
     extra_fields = {}
-    if CTAPIPE_GE_0_31 and tel_event.pixel_time_shift is not None:
+    if tel_event.pixel_time_shift is not None:
         # pixel_time_shift is stored as int16, in 10 ps increments. Convert to ns.
         pixel_time_shift = tel_event.pixel_time_shift.astype(np.float32) * TEN_PS_TO_NS
         pixel_time_shift = pixel_time_shift.reshape((n_channels, n_pixels_stored))
@@ -160,14 +158,13 @@ def _fill_camera_container(
         )
         extra_fields["pixel_time_shift"] = pixel_time_shift_reordered
 
-    # ctapipe <= 0.33 DL0 is missing the pixel_intensity field
     if is_r1 and tel_event.pedestal_intensity is not None:
         pedestal = np.zeros(n_pixels_nominal, dtype=np.float32)
         pedestal[camera_config.pixel_id_map] = tel_event.pedestal_intensity
         extra_fields["pedestal_intensity"] = pedestal
 
-    container = R1CameraContainer if is_r1 else DL0CameraContainer
-    return container(
+    container = TelescopeR1Container if is_r1 else TelescopeDL0Container
+    camera_event = container(
         pixel_status=pixel_status_reordered,
         event_type=EventType(int(tel_event.event_type)),
         selected_gain_channel=selected_gain_channel,
@@ -180,6 +177,23 @@ def _fill_camera_container(
         calibration_monitoring_id=tel_event.calibration_monitoring_id,
         **extra_fields,
     )
+
+    # LST currently fills the trigger time into event_time (start of readout).
+    # Use it until the separate telescope trigger stream is available.
+    trigger = TelescopeTriggerContainer(
+        time=camera_event.event_time,
+        event_type=camera_event.event_type,
+    )
+    event = TelescopeEventContainer(
+        index=TelescopeEventIndexContainer(
+            obs_id=data_stream.obs_id,
+            event_id=tel_event.event_id,
+            tel_id=data_stream.tel_id,
+        ),
+    )
+    setattr(event, datalevel.name.lower(), camera_event)
+    event.dl0.trigger = trigger
+    return event
 
 
 class ProtozfitsEventSource(EventSource):
@@ -351,16 +365,19 @@ class ProtozfitsEventSource(EventSource):
             if all(f.exhausted for f in self._telescope_files.values()):
                 return
 
-            array_event = ArrayEventContainer(
+            subarray_event = SubarrayEventContainer(
                 count=count,
-                index=EventIndexContainer(
+                index=SubarrayEventIndexContainer(
                     obs_id=subarray_trigger.obs_id, event_id=subarray_trigger.event_id
                 ),
-                trigger=TriggerContainer(
-                    time=cta_high_res_to_time(
-                        subarray_trigger.event_time_s, subarray_trigger.event_time_qns
+                dl0=SubarrayDL0Container(
+                    trigger=SubarrayTriggerContainer(
+                        time=cta_high_res_to_time(
+                            subarray_trigger.event_time_s,
+                            subarray_trigger.event_time_qns,
+                        ),
+                        tels_with_trigger=subarray_trigger.tel_ids_with_trigger.tolist(),
                     ),
-                    tels_with_trigger=subarray_trigger.tel_ids_with_trigger.tolist(),
                 ),
             )
 
@@ -378,41 +395,15 @@ class ProtozfitsEventSource(EventSource):
                 if tel_event is None:
                     continue
 
-                dl0_tel = _fill_camera_container(
+                subarray_event.tel[tel_id] = _fill_telescope_event(
                     tel_event,
-                    tel_file.data_stream,
-                    tel_file.camera_config,
-                    camera.geometry,
+                    data_stream=tel_file.data_stream,
+                    camera_config=tel_file.camera_config,
+                    camera=camera,
                     dvr_fill_value=self._dvr_fill_value,
                 )
-                # FIXME: This should be the trigger time, which is not identical
-                # in the data model to the event time, which is the start-of-readout.
-                # LST currently fills the trigger time into the event time.
-                # should change to also open the tel trigger stream or not fill,
-                # but ctapipe currently requires this to be present.
-                array_event.trigger.tel[tel_id] = TelescopeTriggerContainer(
-                    time=dl0_tel.event_time,
-                )
-                array_event.dl0.tel[tel_id] = dl0_tel
 
-                n_channels = camera.readout.n_channels
-                _fill_calibration_container(array_event, tel_id, n_channels)
-
-            yield array_event
-
-
-def _fill_calibration_container(
-    array_event, tel_id, n_channels, datalevel=DataLevel.DL0
-):
-    pixel_status = getattr(array_event, datalevel.name.lower()).tel[tel_id].pixel_status
-    mask = np.zeros((n_channels, len(pixel_status)), dtype=bool)
-    mask[GainChannel.HIGH] = (pixel_status & PixelStatus.HIGH_GAIN_STORED) == 0
-    if n_channels > 1:
-        mask[GainChannel.LOW] = (pixel_status & PixelStatus.LOW_GAIN_STORED) == 0
-
-    array_event.monitoring.tel[tel_id].camera.coefficients = CameraCalibrationContainer(
-        outlier_mask=mask,
-    )
+            yield subarray_event
 
 
 class ProtozfitsTelescopeEventSource(EventSource):
@@ -497,48 +488,41 @@ class ProtozfitsTelescopeEventSource(EventSource):
     def scheduling_blocks(self) -> dict[int, SchedulingBlockContainer]:  # noqa: D102
         return self._scheduling_blocks
 
-    def _fill_event(self, count, zfits_event) -> ArrayEventContainer:
+    def _fill_event(self, count, zfits_event) -> SubarrayEventContainer:
         tel_id = self.tel_id
         camera = self.subarray.tel[tel_id].camera
 
         # until ctapipe allows telescope event sources
-        # we have to fill an arrayevent with just one telescope here
+        # we have to fill a subarray event with just one telescope here
         time = cta_high_res_to_time(
             zfits_event.event_time_s, zfits_event.event_time_qns
         )
         event_type = EventType(int(zfits_event.event_type))
-        array_event = ArrayEventContainer(
+        subarray_event = SubarrayEventContainer(
             count=count,
-            index=EventIndexContainer(
+            index=SubarrayEventIndexContainer(
                 obs_id=self.obs_id,
                 event_id=zfits_event.event_id,
             ),
-            trigger=TriggerContainer(
-                tels_with_trigger=[self.tel_id],
-                event_type=event_type,
-                time=time,
+            dl0=SubarrayDL0Container(
+                trigger=SubarrayTriggerContainer(
+                    tels_with_trigger=[self.tel_id],
+                    event_type=event_type,
+                    time=time,
+                ),
             ),
         )
-        array_event.trigger.tel[tel_id] = TelescopeTriggerContainer(
-            time=time,
-            event_type=event_type,
+        subarray_event.tel[tel_id] = _fill_telescope_event(
+            zfits_event,
+            data_stream=self._multi_file.data_stream,
+            camera_config=self._multi_file.camera_config,
+            camera=camera,
+            ignore_samples_start=self.ignore_samples_start,
+            ignore_samples_end=self.ignore_samples_end,
+            dvr_fill_value=self._dvr_fill_value,
+            datalevel=self._datalevel,
         )
-        getattr(array_event, self._datalevel.name.lower()).tel[tel_id] = (
-            _fill_camera_container(
-                zfits_event,
-                self._multi_file.data_stream,
-                self._multi_file.camera_config,
-                camera.geometry,
-                ignore_samples_start=self.ignore_samples_start,
-                ignore_samples_end=self.ignore_samples_end,
-                dvr_fill_value=self._dvr_fill_value,
-                datalevel=self._datalevel,
-            )
-        )
-        _fill_calibration_container(
-            array_event, tel_id, camera.readout.n_channels, self._datalevel
-        )
-        return array_event
+        return subarray_event
 
     def _generator(self):
         for count, zfits_event in enumerate(self._multi_file):

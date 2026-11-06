@@ -3,7 +3,7 @@
 # * https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#declaring-project-metadata
 # * The setuptools and setuptools_scm documentation for the respective sections
 [build-system]
-requires = ["setuptools>=65", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=77", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -21,7 +21,7 @@ requires-python = ">=3.12"
 dependencies = [
     "numpy",
     "protozfits >=2.7.3,<3.0.0",
-    "ctapipe >=0.28.0",
+    "ctapipe @ git+https://github.com/cta-observatory/ctapipe@main",
 ]
 
 [project.optional-dependencies]
@@ -124,6 +124,7 @@ xfail_strict = true
 # print summary of failed tests, force errors if settings are misspelled
 addopts = ["-ra", "--strict-config", "--strict-markers"]
 filterwarnings = [
-    "error",
-    "ignore:datetime.datetime.utcfromtimestamp\\(\\):DeprecationWarning",
+  "error",
+  "ignore:datetime.datetime.utcfromtimestamp\\(\\):DeprecationWarning",
+  "ignore::ctapipe.core.provenance.MissingReferenceMetadata",
 ]

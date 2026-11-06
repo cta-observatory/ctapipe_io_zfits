@@ -7,8 +7,6 @@ from ctapipe.io import EventSource, TableLoader
 from ctapipe.tools.process import ProcessorTool
 from traitlets.config import Config
 
-from ctapipe_io_zfits.source import CTAPIPE_GE_0_31
-
 
 def test_is_compatible(dummy_dl0):
     from ctapipe_io_zfits import ProtozfitsEventSource
@@ -39,24 +37,28 @@ def test_subarray_events(dummy_dl0):
             assert array_event.count == i
             assert array_event.index.obs_id == dummy_dl0["obs_id"]
             assert array_event.index.event_id == n_read + 1
-            dt = np.abs(array_event.trigger.time - time).to(u.ns)
+            dt = np.abs(array_event.dl0.trigger.time - time).to(u.ns)
             assert dt < 0.2 * u.ns
-            assert array_event.trigger.tels_with_trigger == [
-                1,
-            ]
+            assert array_event.dl0.trigger.tels_with_trigger == [1]
 
-            assert np.any(array_event.dl0.tel[1].waveform != 0.0)
-            assert array_event.dl0.tel[1].waveform.dtype == np.float32
+            telescope_event = array_event.tel[1]
+            assert telescope_event.index.obs_id == array_event.index.obs_id
+            assert telescope_event.index.event_id == array_event.index.event_id
+            assert telescope_event.index.tel_id == 1
+            assert telescope_event.dl0.trigger.time == telescope_event.dl0.event_time
+            assert telescope_event.dl0.trigger.event_type == EventType.SUBARRAY
+            assert np.any(array_event.tel[1].dl0.waveform != 0.0)
+            assert array_event.tel[1].dl0.waveform.dtype == np.float32
 
             n_read += 1
             time = time + 0.001 * u.s
 
-            if CTAPIPE_GE_0_31 and dummy_dl0.get("pixel_time_shift"):
-                pixel_time_shift = array_event.dl0.tel[1].pixel_time_shift
+            if dummy_dl0.get("pixel_time_shift"):
+                pixel_time_shift = array_event.tel[1].dl0.pixel_time_shift
                 assert pixel_time_shift is not None
 
                 if dummy_dl0.get("dvr"):
-                    pixel_stored = array_event.dl0.tel[1].pixel_status != 0
+                    pixel_stored = array_event.tel[1].dl0.pixel_status != 0
                     np.testing.assert_array_equal(
                         pixel_time_shift[0, ~pixel_stored], 0.0
                     )
@@ -91,7 +93,7 @@ def test_telescope_event_source(dummy_tel_file):
 
         for i, event in enumerate(source):
             assert event.count == i
-            assert event.dl0.tel.keys() == {1}
+            assert event.tel.keys() == {1}
 
 
 def test_process_tel_events(dummy_dl0, tmp_path):
@@ -126,9 +128,9 @@ def test_pixel_status(dummy_tel_file):
         for e in f:
             n_read += 1
 
-            (missing_pixels_from_status,) = np.nonzero(e.dl0.tel[1].pixel_status == 0)
+            (missing_pixels_from_status,) = np.nonzero(e.tel[1].dl0.pixel_status == 0)
             _, missing_pixels_from_waveform = np.nonzero(
-                e.dl0.tel[1].waveform.sum(axis=2) == 0
+                e.tel[1].dl0.waveform.sum(axis=2) == 0
             )
 
             np.testing.assert_array_equal(
@@ -153,8 +155,8 @@ def test_telescope_event_source_missing_ids(dummy_tel_file_no_ids):
         n_read = 0
         for event in source:
             assert event.count == n_read
-            assert event.dl0.tel.keys() == {1}
-            assert event.trigger.event_type == EventType.FLATFIELD
+            assert event.tel.keys() == {1}
+            assert event.dl0.trigger.event_type == EventType.FLATFIELD
             n_read += 1
 
         assert n_read == 50
@@ -165,8 +167,10 @@ def test_telescope_event_source_missing_ids(dummy_tel_file_no_ids):
         n_read = 0
         for event in source:
             assert event.count == n_read
-            assert event.dl0.tel.keys() == {1}
-            assert event.trigger.event_type == EventType.SKY_PEDESTAL
+            assert event.tel.keys() == {1}
+            assert event.tel[1].dl0.waveform is not None
+            assert event.dl0.trigger.event_type == EventType.SKY_PEDESTAL
+
             n_read += 1
 
         assert n_read == 50

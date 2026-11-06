@@ -90,7 +90,8 @@ def get_array_element_ids(subarray_id: int) -> tuple[int]:
 def get_array_element_positions(site):
     with as_file(RESOURCES / f"array_element_positions_{site.lower()}.ecsv") as path:
         positions = QTable.read(path)
-        Provenance().add_input_file(path, "array element positions")
+        # Bundled instrument files do not contain CTAO reference metadata.
+        Provenance().add_input_file(path, "array element positions", add_meta=False)
     positions.add_index("ae_id")
     return positions
 
@@ -156,12 +157,12 @@ def build_subarray_description(subarray_id, log=LOG):
             optics = OPTICS["LST"]
 
             with as_file(RESOURCES / "LSTCam.camgeom.fits.gz") as path:
-                Provenance().add_input_file(path, "CameraGeometry")
+                Provenance().add_input_file(path, "CameraGeometry", add_meta=False)
                 geometry = CameraGeometry.from_table(path)
                 geometry.frame = CameraFrame(focal_length=optics.effective_focal_length)
 
             with as_file(RESOURCES / "LSTCam.camreadout.fits.gz") as path:
-                Provenance().add_input_file(path, "CameraReadout")
+                Provenance().add_input_file(path, "CameraReadout", add_meta=False)
                 readout = CameraReadout.from_table(path)
 
             camera = CameraDescription("LSTCam", geometry=geometry, readout=readout)

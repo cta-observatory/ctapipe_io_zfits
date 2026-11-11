@@ -2,14 +2,15 @@ import astropy.units as u
 import numpy as np
 import pytest
 from ctapipe.containers import EventType, PixelStatus
-from ctapipe.io import DataLevel, EventSource
+from ctapipe.core.tool import run_tool
+from ctapipe.io import DataLevel, EventSource, TableLoader
+from ctapipe.tools.process import ProcessorTool
 from protozfits import FlatProtobufZOFits
 from protozfits import R1v1_pb2 as R1
 from protozfits.anyarray import numpy_to_any_array
 from traitlets.config import Config
 
 from ctapipe_io_zfits import ProtozfitsEventSource, ProtozfitsTelescopeEventSource
-from ctapipe_io_zfits.source import CTAPIPE_GE_0_31
 from ctapipe_io_zfits.time import cta_high_res_to_time
 
 
@@ -120,9 +121,16 @@ def test_r1_telescope_source(r1_file, fill_nan):
             n_read += 1
             assert event.index.event_id == n_read
             assert event.index.obs_id == 789
-            assert event.r1.tel.keys() == {1}
-            assert not event.dl0.tel
-            camera = event.r1.tel[1]
+            assert event.tel.keys() == {1}
+            assert event.tel[1].dl0.camera is None
+            assert event.tel[1].index.obs_id == event.index.obs_id
+            assert event.tel[1].index.event_id == event.index.event_id
+            assert event.tel[1].index.tel_id == 1
+            assert event.dl0.trigger.tels_with_trigger == [1]
+            assert event.dl0.trigger.tels_with_data == [1]
+            assert event.dl0.trigger.event_type == EventType.SUBARRAY
+            assert event.tel[1].dl0.trigger.event_type == EventType.SUBARRAY
+            camera = event.tel[1].r1
             ids = r1_file["pixel_ids"]
             expected = np.full(
                 (r1_file["n_channels"], n_pixels, 3),
@@ -137,17 +145,7 @@ def test_r1_telescope_source(r1_file, fill_nan):
                 PixelStatus.get_channel_info(r1_file["status"]),
             )
             np.testing.assert_array_equal(camera.pixel_status[ids], r1_file["status"])
-            mask = event.monitoring.tel[1].camera.coefficients.outlier_mask
-            np.testing.assert_array_equal(
-                mask[:, ids],
-                [
-                    [False, True, False, True],
-                    [True, False, r1_file["n_channels"] == 1, True],
-                ],
-            )
-            missing_pixels = np.ones(n_pixels, dtype=bool)
-            missing_pixels[ids] = False
-            assert np.all(mask[:, missing_pixels])
+            assert event.tel[1].monitoring.camera.coefficients.outlier_mask is None
             if r1_file["n_channels"] == 1:
                 np.testing.assert_array_equal(
                     camera.selected_gain_channel[ids], [0, 1, 0, 1]
@@ -157,7 +155,7 @@ def test_r1_telescope_source(r1_file, fill_nan):
             assert camera.event_type == EventType.SUBARRAY
             dt = camera.event_time - cta_high_res_to_time(1700000000, 123)
             assert abs(dt.to_value(u.ns)) < 0.2
-            assert event.trigger.tel[1].time == camera.event_time
+            assert event.tel[1].dl0.trigger.time == camera.event_time
             np.testing.assert_array_equal(
                 camera.first_cell_id, r1_file["first_cell_id"]
             )
@@ -165,18 +163,39 @@ def test_r1_telescope_source(r1_file, fill_nan):
                 camera.pedestal_intensity[ids], r1_file["pedestal"]
             )
             assert camera.calibration_monitoring_id == 42
-            if CTAPIPE_GE_0_31:
-                if r1_file["shifts"] is None:
-                    assert camera.pixel_time_shift is None
-                else:
-                    expected_shifts = np.zeros(
-                        (r1_file["n_channels"], n_pixels), dtype=np.float32
-                    )
-                    expected_shifts[:, ids] = r1_file["shifts"].astype(
-                        np.float32
-                    ) * np.float32(0.01)
-                    np.testing.assert_array_equal(
-                        camera.pixel_time_shift, expected_shifts
-                    )
-                    assert camera.pixel_time_shift.dtype == np.float32
+            if r1_file["shifts"] is None:
+                assert camera.pixel_time_shift is None
+            else:
+                expected_shifts = np.zeros(
+                    (r1_file["n_channels"], n_pixels), dtype=np.float32
+                )
+                expected_shifts[:, ids] = r1_file["shifts"].astype(
+                    np.float32
+                ) * np.float32(0.01)
+                np.testing.assert_array_equal(camera.pixel_time_shift, expected_shifts)
+                assert camera.pixel_time_shift.dtype == np.float32
         assert n_read == 2
+
+
+@pytest.mark.parametrize("r1_file", [(1, False), (1, True)], indirect=True)
+def test_process_r1(r1_file, tmp_path):
+    # ctapipe's image processor requires gain-selected images.
+    output_path = tmp_path / "r1.dl1.h5"
+    run_tool(
+        ProcessorTool(),
+        [
+            f"--input={r1_file['path']}",
+            f"--output={output_path}",
+            "--write-images",
+            "--write-parameters",
+            "--MultiFiles.all_chunks=True",
+        ],
+        raises=True,
+    )
+
+    with TableLoader(output_path) as loader:
+        events = loader.read_telescope_events()
+        assert len(events) == 2
+        np.testing.assert_array_equal(events["obs_id"], 789)
+        np.testing.assert_array_equal(events["tel_id"], 1)
+        np.testing.assert_array_equal(events["event_id"], [1, 2])

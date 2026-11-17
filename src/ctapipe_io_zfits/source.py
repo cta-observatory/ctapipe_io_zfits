@@ -159,7 +159,10 @@ def _fill_telescope_event(
         )
         extra_fields["pixel_time_shift"] = pixel_time_shift_reordered
 
-    if tel_event.pedestal_intensity is not None:
+    if (
+        tel_event.pedestal_intensity is not None
+        and tel_event.pedestal_intensity.size > 0
+    ):
         pedestal = np.zeros(n_pixels_nominal, dtype=np.float32)
         pedestal[camera_config.pixel_id_map[pixel_stored]] = (
             tel_event.pedestal_intensity

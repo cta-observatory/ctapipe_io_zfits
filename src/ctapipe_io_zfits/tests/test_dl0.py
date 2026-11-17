@@ -12,13 +12,17 @@ from traitlets.config import Config
 
 
 @pytest.mark.parametrize("dvr", [False, True])
-@pytest.mark.parametrize("has_pedestal", [False, True])
-def test_dl0_pedestal_intensity(dvr, has_pedestal):
+@pytest.mark.parametrize("pedestal_state", ["missing", "empty", "filled"])
+def test_dl0_pedestal_intensity(dvr, pedestal_state):
     from ctapipe_io_zfits.source import _fill_telescope_event
 
     pixel_ids = np.array([5, 2, 7, 0])
     status = np.array([13, 0, 13, 0] if dvr else [13] * 4, dtype=np.uint8)
     pedestal = np.array([10, 20] if dvr else [10, 20, 30, 40], dtype=np.float32)
+    if pedestal_state == "missing":
+        pedestal = None
+    elif pedestal_state == "empty":
+        pedestal = np.array([], dtype=np.float32)
     n_stored = 2 if dvr else 4
     tel_event = SimpleNamespace(
         event_id=1,
@@ -28,7 +32,7 @@ def test_dl0_pedestal_intensity(dvr, has_pedestal):
         waveform=np.ones((1, n_stored, 3), dtype=np.uint16),
         pixel_status=status,
         pixel_time_shift=None,
-        pedestal_intensity=pedestal if has_pedestal else None,
+        pedestal_intensity=pedestal,
         event_type=EventType.SUBARRAY.value,
         event_time_s=1700000000,
         event_time_qns=0,
@@ -43,7 +47,7 @@ def test_dl0_pedestal_intensity(dvr, has_pedestal):
         camera_config=SimpleNamespace(num_pixels=4, pixel_id_map=pixel_ids),
         camera=SimpleNamespace(geometry=SimpleNamespace(n_pixels=8)),
     )
-    if has_pedestal:
+    if pedestal_state == "filled":
         expected = np.zeros(8, dtype=np.float32)
         if dvr:
             expected[5], expected[7] = 10, 20

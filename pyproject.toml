@@ -28,6 +28,7 @@ dependencies = [
 test = [
   "pytest",
   "pytest-cov",
+  "coverage<7.17.5", # breaks numba coverage collection
 ]
 docs = [
   "sphinx",

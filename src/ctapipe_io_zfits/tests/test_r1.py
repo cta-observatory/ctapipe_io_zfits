@@ -148,7 +148,7 @@ def test_r1_telescope_source(r1_file, fill_nan):
             assert event.tel[1].monitoring.camera.coefficients.outlier_mask is None
             if r1_file["n_channels"] == 1:
                 np.testing.assert_array_equal(
-                    camera.selected_gain_channel[ids], [0, 1, 0, 1]
+                    camera.selected_gain_channel[ids], [0, 1, 0, 0]
                 )
             else:
                 assert camera.selected_gain_channel is None

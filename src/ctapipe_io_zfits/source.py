@@ -139,9 +139,9 @@ def _fill_telescope_event(
     channel_info = PixelStatus.get_channel_info(pixel_status_reordered)
     if n_channels == 1:
         selected_gain_channel = np.where(
-            channel_info == PixelStatus.get_channel_info(PixelStatus.HIGH_GAIN_STORED),
-            GainChannel.HIGH,
+            channel_info == PixelStatus.get_channel_info(PixelStatus.LOW_GAIN_STORED),
             GainChannel.LOW,
+            GainChannel.HIGH,
         )
     else:
         selected_gain_channel = None

@@ -28,7 +28,7 @@ class NextEvent:
 
 @dataclass()
 class FileInfo:
-    tel_id: int
+    tel_id: int | None
     data_source: str
     obs_id: int | None = None
     sb_id: int | None = None
@@ -79,6 +79,12 @@ def lst_filename(file_info: FileInfo):
     )
 
 
+def nectarcam_filename(info: FileInfo):
+    """Build a NectarCAM test-data filename or discovery glob."""
+    chunk = "*" if info.chunk == "*" else f"{info.chunk:04d}"
+    return f"NectarCAM.Run{info.obs_id:04d}.{chunk}{info.extra_suffix}.fits.fz"
+
+
 ACADA_DPPS_ICD_FILENAME_RE = re.compile(
     r"TEL(?P<tel_id>\d+)_(?P<data_source>SDH\d+)(?:_(?P<timestamp>\d{8}T\d{6}))"
     r"(?:_SBID(?P<sb_id>\d+))?(?:_OBSID(?P<obs_id>\d+))?(?:_RUNID(?P<local_run_id>\d+))?"
@@ -106,6 +112,15 @@ filename_conventions = {
         ),
         "template": lst_filename,
     },
+    "nectarcam": {
+        "re": re.compile(
+            r"NectarCAM\.Run(?P<obs_id>\d+)\.(?P<chunk>\d+)"
+            r"(?P<extra_suffix>.*)\.fits\.fz$"
+        ),
+        "template": nectarcam_filename,
+        # Even and odd chunks form two independent parallel streams.
+        "chunk_step": 2,
+    },
 }
 
 
@@ -118,7 +133,8 @@ def optional_int(val):
 def get_file_info(path, convention):
     path = Path(path)
 
-    regex = filename_conventions[convention]["re"]
+    settings = filename_conventions[convention]
+    regex = settings["re"]
     m = regex.match(path.name)
     if m is None:
         raise ValueError(
@@ -146,8 +162,10 @@ def get_file_info(path, convention):
         data_type = None
 
     return FileInfo(
-        tel_id=int(groups["tel_id"]),
-        data_source=groups["data_source"],
+        tel_id=optional_int(groups.get("tel_id")),
+        data_source=groups.get(
+            "data_source", str(chunk % settings.get("chunk_step", 1))
+        ),
         timestamp=groups.get("timestamp"),
         sb_id=sb_id,
         obs_id=obs_id,
@@ -158,7 +176,7 @@ def get_file_info(path, convention):
         obs_id_padding=obs_id_padding,
         local_run_id_padding=local_run_id_padding,
         chunk_padding=chunk_padding,
-        extra_suffix=groups["extra_suffix"],
+        extra_suffix=groups.get("extra_suffix", ""),
     )
 
 
@@ -193,6 +211,10 @@ class MultiFiles(Component):
 
     filename_convention = Unicode(
         default_value="acada_dpps_icd",
+        help=(
+            "Filename convention. For nectarcam, even and odd chunks are parallel "
+            "streams, with chunks 0/1, 2/3, etc. forming matching pairs."
+        ),
     ).tag(config=True)
 
     ignore_timestamp = Bool(
@@ -231,11 +253,18 @@ class MultiFiles(Component):
         self.directory = self.path.parent
         convention = filename_conventions[self.filename_convention]
         self.filename_template = convention["template"]
+        self._chunk_step = convention.get("chunk_step", 1)
 
         self._discover_files(file_info)
 
         self._current_chunk = {
-            data_source: file_info.chunk - 1 for data_source in self.data_sources
+            source: next(
+                chunk
+                for chunk in self._files[source][file_info.local_run_id]
+                if chunk // self._chunk_step == file_info.chunk // self._chunk_step
+            )
+            - self._chunk_step
+            for source in self.data_sources
         }
         self._current_run = {
             data_source: file_info.local_run_id for data_source in self.data_sources
@@ -258,7 +287,11 @@ class MultiFiles(Component):
         pattern_info = copy(file_info)
         if self.all_source_ids:
             pattern_info.data_source = "*"
-        if self.all_chunks or self.all_runs:
+        if (
+            self.all_chunks
+            or self.all_runs
+            or (self.all_source_ids and self._chunk_step > 1)
+        ):
             pattern_info.chunk = "*"
             pattern_info.chunk_padding = 0
         if self.all_runs and file_info.local_run_id is not None:
@@ -329,9 +362,12 @@ class MultiFiles(Component):
                     continue
 
             file_infos[candidate] = info
+            if not self.all_source_ids and info.data_source != file_info.data_source:
+                continue
             if (
                 info.local_run_id == file_info.local_run_id
-                and info.chunk == file_info.chunk
+                and info.chunk // self._chunk_step
+                == file_info.chunk // self._chunk_step
                 and (self.ignore_timestamp or info.timestamp == file_info.timestamp)
             ):
                 self.data_sources.add(info.data_source)
@@ -418,7 +454,7 @@ class MultiFiles(Component):
         if data_source in self._open_files:
             self._open_files.pop(data_source).close()
 
-        self._current_chunk[data_source] += 1
+        self._current_chunk[data_source] += self._chunk_step
         chunk = self._current_chunk[data_source]
 
         path = self._files[data_source][self._current_run[data_source]].get(chunk)

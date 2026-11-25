@@ -110,6 +110,84 @@ def test_indexed_chunks_other_conventions(run_files, convention, data_source):
         assert mf.exhausted
 
 
+@pytest.mark.parametrize("obs_id", [42, 12345])
+@pytest.mark.parametrize("chunk", [0, 1, 12, 12345])
+def test_nectarcam_filename_convention(obs_id, chunk):
+    from ctapipe_io_zfits.multifile import get_file_info, get_file_name
+
+    filename = f"NectarCAM.Run{obs_id:04d}.{chunk:04d}.fits.fz"
+    info = get_file_info(filename, "nectarcam")
+    assert info.tel_id is None
+    assert info.obs_id == obs_id
+    assert info.chunk == chunk
+    assert info.data_source == str(chunk % 2)
+    assert info.local_run_id is None
+    assert get_file_name(info, "nectarcam") == filename
+
+
+@pytest.mark.parametrize("start_chunk", [0, 1, 2, 3])
+@pytest.mark.parametrize("all_source_ids", [False, True])
+@pytest.mark.parametrize("all_chunks", [False, True])
+def test_nectarcam_parallel_streams(run_files, start_chunk, all_source_ids, all_chunks):
+    from ctapipe_io_zfits.multifile import MultiFiles
+
+    add_file, files = run_files
+    paths = []
+    for chunk in range(6):
+        # Events overlap across the even and odd streams, so sequential reading
+        # of chunks would yield events out of order.
+        pair, source = divmod(chunk, 2)
+        paths.append(
+            add_file(
+                [pair * 4 + source + 1, pair * 4 + source + 3],
+                convention="nectarcam",
+                chunk=chunk,
+            )
+        )
+    add_file([100], convention="nectarcam", obs_id=457)
+
+    with MultiFiles(
+        paths[start_chunk],
+        filename_convention="nectarcam",
+        all_source_ids=all_source_ids,
+        all_chunks=all_chunks,
+    ) as mf:
+        sources = {"0", "1"} if all_source_ids else {str(start_chunk % 2)}
+        assert mf.data_sources == sources
+        assert mf.n_open_files == len(sources)
+        first = start_chunk // 2 * 4 + 1
+        stop = 13 if all_chunks else first + 4
+        expected = [
+            event_id
+            for event_id in range(first, stop)
+            if all_source_ids or str((event_id - 1) % 2) in sources
+        ]
+        assert [event.event_id for event in mf] == expected
+        assert mf.exhausted
+
+    for file_ in files.values():
+        if file_.Events.__next__.called:
+            file_.close.assert_called_once()
+        else:
+            file_.close.assert_not_called()
+
+
+@pytest.mark.parametrize("start_chunk", [0, 1])
+def test_nectarcam_missing_parallel_stream(run_files, start_chunk):
+    from ctapipe_io_zfits.multifile import MultiFiles
+
+    add_file, _ = run_files
+    path = add_file([1], convention="nectarcam", chunk=start_chunk)
+    add_file([2], convention="nectarcam", chunk=start_chunk + 2)
+    # A gap exhausts this stream, as with the other conventions.
+    add_file([100], convention="nectarcam", chunk=start_chunk + 6)
+
+    with MultiFiles(path, filename_convention="nectarcam", all_chunks=True) as mf:
+        assert mf.data_sources == {str(start_chunk)}
+        assert [event.event_id for event in mf] == [1, 2]
+        assert mf.exhausted
+
+
 @pytest.mark.parametrize("all_runs", [False, True])
 @pytest.mark.parametrize("all_chunks", [False, True])
 @pytest.mark.parametrize("all_source_ids", [False, True])

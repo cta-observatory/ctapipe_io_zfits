@@ -82,7 +82,7 @@ def lst_filename(file_info: FileInfo):
 def nectarcam_filename(info: FileInfo):
     """Build a NectarCAM test-data filename or discovery glob."""
     chunk = "*" if info.chunk == "*" else f"{info.chunk:04d}"
-    return f"NectarCAM.Run{info.obs_id:04d}.{chunk}.fits.fz"
+    return f"NectarCAM.Run{info.obs_id:04d}.{chunk}{info.extra_suffix}.fits.fz"
 
 
 ACADA_DPPS_ICD_FILENAME_RE = re.compile(
@@ -113,7 +113,10 @@ filename_conventions = {
         "template": lst_filename,
     },
     "nectarcam": {
-        "re": re.compile(r"NectarCAM\.Run(?P<obs_id>\d+)\.(?P<chunk>\d+)\.fits\.fz$"),
+        "re": re.compile(
+            r"NectarCAM\.Run(?P<obs_id>\d+)\.(?P<chunk>\d+)"
+            r"(?P<extra_suffix>.*)\.fits\.fz$"
+        ),
         "template": nectarcam_filename,
         # Even and odd chunks form two independent parallel streams.
         "chunk_step": 2,
